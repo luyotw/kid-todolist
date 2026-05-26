@@ -1,13 +1,19 @@
 import { useState } from 'react'
-import { loadTasks, saveTasks } from '../lib/storage'
+import { loadTasks, saveTasks, loadReward, saveReward } from '../lib/storage'
 import { DAY_LABELS } from '../lib/constants'
 import type { Task } from '../types'
 import TaskForm from '../components/TaskForm'
 
 export default function SettingsPage() {
   const [tasks, setTasks] = useState<Task[]>(() => loadTasks())
+  const [rewardText, setRewardText] = useState(() => loadReward().text)
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+
+  function persistReward(text: string) {
+    setRewardText(text)
+    saveReward({ text })
+  }
 
   function persist(updated: Task[]) {
     saveTasks(updated)
@@ -56,6 +62,23 @@ export default function SettingsPage() {
       </header>
 
       <div className="mx-auto max-w-sm space-y-4">
+        <section className="bg-white rounded-xl border-2 border-amber-200 px-4 py-4">
+          <h2 className="text-base font-semibold text-amber-900">完成獎勵</h2>
+          <p className="text-xs text-gray-500 mt-1">
+            全部任務完成後，小孩會在首頁看到這個獎勵
+          </p>
+          <input
+            id="reward-text"
+            type="text"
+            aria-label="獎勵文字"
+            placeholder="例如：看 30 分鐘卡通"
+            value={rewardText}
+            onChange={(e) => setRewardText(e.target.value)}
+            onBlur={(e) => persistReward(e.target.value)}
+            className="mt-3 w-full min-h-[44px] rounded-lg border-2 border-gray-200 px-3 text-base text-gray-800 focus:border-amber-400 focus:outline-none"
+          />
+        </section>
+
         {!showForm && (
           <button
             type="button"
