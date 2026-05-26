@@ -113,7 +113,7 @@ export default function SettingsPage() {
                   <div className="bg-white rounded-xl border-2 border-gray-200 px-4 py-3">
                     <div className="flex items-center justify-between">
                       <div className="flex-1 min-w-0">
-                        <p className="text-base font-medium text-gray-800 truncate">
+                        <p className="text-base font-medium text-gray-800 break-words">
                           {task.name}
                         </p>
                         <p className="text-xs text-gray-400 mt-0.5">

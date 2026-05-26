@@ -125,7 +125,7 @@ export default function HomePage() {
                     {done && '✓'}
                   </span>
                   <span
-                    className={`text-lg ${
+                    className={`text-lg break-words flex-1 min-w-0 ${
                       done ? 'line-through text-gray-400' : 'text-gray-800'
                     }`}
                   >
