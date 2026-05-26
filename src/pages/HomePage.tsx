@@ -6,28 +6,19 @@ import {
   saveDayRecord,
   todayStr,
 } from '../lib/storage'
-import type { Task, DayRecord } from '../types'
+import type { DayRecord } from '../types'
 import { DAY_LABELS } from '../lib/constants'
-
-function getTasksForDay(tasks: Task[], dayOfWeek: number): Task[] {
-  return tasks
-    .filter((t) => t.days.length === 0 || t.days.includes(dayOfWeek))
-    .sort((a, b) => a.order - b.order)
-}
+import { buildTodayTaskList } from '../lib/schedule'
 
 export default function HomePage() {
   const today = todayStr()
   const dayOfWeek = new Date().getDay()
 
-  const [tasks] = useState<Task[]>(() => loadTasks())
+  const [tasks] = useState(() => loadTasks())
   const [record, setRecord] = useState<DayRecord>(() => loadDayRecord(today))
   const reward = loadReward()
 
-  const scheduledTasks = getTasksForDay(tasks, dayOfWeek)
-  const allTasks = [
-    ...scheduledTasks,
-    ...record.adhocTasks.map((t) => ({ ...t, days: [], order: 999 })),
-  ]
+  const allTasks = buildTodayTaskList(tasks, dayOfWeek, record.adhocTasks)
 
   const totalCount = allTasks.length
   const doneCount = allTasks.filter((t) => record.completed[t.id]).length
@@ -67,8 +58,14 @@ export default function HomePage() {
       {totalCount === 0 ? (
         <div className="text-center text-gray-400 mt-16">
           <p className="text-5xl mb-4">📝</p>
-          <p>還沒有任務</p>
-          <p className="text-sm mt-1">請先到設定頁面新增任務</p>
+          {tasks.length === 0 ? (
+            <>
+              <p>還沒有任務</p>
+              <p className="text-sm mt-1">請先到設定頁面新增任務</p>
+            </>
+          ) : (
+            <p>今天沒有任務</p>
+          )}
         </div>
       ) : (
         <ul className="mx-auto max-w-sm space-y-3">
