@@ -9,6 +9,7 @@ import {
 import type { DayRecord } from '../types'
 import { DAY_LABELS } from '../lib/constants'
 import { buildTodayTaskList } from '../lib/schedule'
+import AdhocTaskForm from '../components/AdhocTaskForm'
 
 export default function HomePage() {
   const today = todayStr()
@@ -16,6 +17,7 @@ export default function HomePage() {
 
   const [tasks] = useState(() => loadTasks())
   const [record, setRecord] = useState<DayRecord>(() => loadDayRecord(today))
+  const [showAdhocForm, setShowAdhocForm] = useState(false)
   const reward = loadReward()
 
   const allTasks = buildTodayTaskList(tasks, dayOfWeek, record.adhocTasks)
@@ -38,6 +40,17 @@ export default function HomePage() {
     }))
   }
 
+  function addAdhocTask(name: string) {
+    setRecord((prev) => ({
+      ...prev,
+      adhocTasks: [
+        ...prev.adhocTasks,
+        { id: crypto.randomUUID(), name },
+      ],
+    }))
+    setShowAdhocForm(false)
+  }
+
   return (
     <div className="px-4 pt-safe-top pb-24">
       <header className="pt-6 pb-4 text-center">
@@ -46,6 +59,23 @@ export default function HomePage() {
           星期{DAY_LABELS[dayOfWeek]} &middot; {doneCount}/{totalCount} 完成
         </p>
       </header>
+
+      <div className="mx-auto max-w-sm mb-4">
+        {showAdhocForm ? (
+          <AdhocTaskForm
+            onSubmit={addAdhocTask}
+            onCancel={() => setShowAdhocForm(false)}
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setShowAdhocForm(true)}
+            className="w-full min-h-[44px] bg-indigo-500 text-white font-medium rounded-xl active:scale-[0.98] transition-all"
+          >
+            新增臨時任務
+          </button>
+        )}
+      </div>
 
       {allDone && reward.text && (
         <div className="mx-auto max-w-sm mb-6 rounded-2xl bg-gradient-to-r from-yellow-300 to-amber-400 p-5 text-center shadow-lg animate-bounce">
@@ -61,10 +91,13 @@ export default function HomePage() {
           {tasks.length === 0 ? (
             <>
               <p>還沒有任務</p>
-              <p className="text-sm mt-1">請先到設定頁面新增任務</p>
+              <p className="text-sm mt-1">可點上方新增今天的臨時任務</p>
             </>
           ) : (
-            <p>今天沒有任務</p>
+            <>
+              <p>今天沒有排程任務</p>
+              <p className="text-sm mt-1">可點上方新增今天的臨時任務</p>
+            </>
           )}
         </div>
       ) : (
