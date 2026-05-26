@@ -6,7 +6,10 @@ export default function TabBar() {
   const inactive = 'text-gray-400'
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex safe-area-bottom">
+    <nav
+      aria-label="主要導覽"
+      className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex safe-area-bottom"
+    >
       <NavLink
         to="/"
         end
