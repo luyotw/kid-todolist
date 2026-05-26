@@ -4,7 +4,6 @@ import { MemoryRouter } from 'react-router-dom'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import App from '../App'
 import { loadReward, saveTasks, saveReward } from '../lib/storage'
-import type { Task } from '../types'
 
 const WEDNESDAY = new Date('2026-05-27T12:00:00')
 
