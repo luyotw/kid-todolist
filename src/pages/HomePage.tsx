@@ -7,8 +7,7 @@ import {
   todayStr,
 } from '../lib/storage'
 import type { Task, DayRecord } from '../types'
-
-const DAY_LABELS = ['日', '一', '二', '三', '四', '五', '六']
+import { DAY_LABELS } from '../lib/constants'
 
 function getTasksForDay(tasks: Task[], dayOfWeek: number): Task[] {
   return tasks

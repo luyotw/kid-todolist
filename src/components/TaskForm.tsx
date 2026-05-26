@@ -1,6 +1,5 @@
 import { useState } from 'react'
-
-const DAY_LABELS = ['日', '一', '二', '三', '四', '五', '六']
+import { DAY_LABELS } from '../lib/constants'
 
 interface TaskFormProps {
   initialName?: string

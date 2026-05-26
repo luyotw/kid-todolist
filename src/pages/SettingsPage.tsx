@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { loadTasks, saveTasks } from '../lib/storage'
+import { DAY_LABELS } from '../lib/constants'
 import type { Task } from '../types'
 import TaskForm from '../components/TaskForm'
 
@@ -47,8 +48,6 @@ export default function SettingsPage() {
   }
 
   const sortedTasks = [...tasks].sort((a, b) => a.order - b.order)
-
-  const DAY_LABELS = ['日', '一', '二', '三', '四', '五', '六']
 
   return (
     <div className="px-4 pt-safe-top pb-24">
