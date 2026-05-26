@@ -152,15 +152,16 @@ describe('Homepage empty state and progress', () => {
   it('shows today-empty message when tasks exist but none scheduled today', () => {
     seedTasks([{ id: '1', name: '週末任務', days: [0, 6], order: 0 }])
     renderHome()
-    expect(screen.getByText('今天沒有任務')).toBeInTheDocument()
+    expect(screen.getByText('今天沒有排程任務')).toBeInTheDocument()
     expect(screen.queryByText('週末任務')).not.toBeInTheDocument()
-    expect(screen.queryByText(/請先到設定頁面新增任務/)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /新增臨時任務/ })).toBeInTheDocument()
   })
 
-  it('shows setup hint when no tasks exist at all', () => {
+  it('shows empty hint and adhoc entry when no tasks exist at all', () => {
     renderHome()
     expect(screen.getByText('還沒有任務')).toBeInTheDocument()
-    expect(screen.getByText(/請先到設定頁面新增任務/)).toBeInTheDocument()
+    expect(screen.getByText(/可點上方新增今天的臨時任務/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /新增臨時任務/ })).toBeInTheDocument()
   })
 
   it('counts progress only for visible tasks including adhoc', async () => {

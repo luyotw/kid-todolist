@@ -73,7 +73,7 @@ describe('Schedule DoD', () => {
     vi.setSystemTime(WEDNESDAY)
     seedTasks([{ id: '1', name: '週末任務', days: [0, 6], order: 0 }])
     renderHome()
-    expect(screen.getByText('今天沒有任務')).toBeInTheDocument()
+    expect(screen.getByText('今天沒有排程任務')).toBeInTheDocument()
   })
 
   it('DoD: mixed schedule shows only today tasks in order', () => {
