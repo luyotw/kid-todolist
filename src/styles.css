@@ -258,3 +258,63 @@ body {
   font-weight: 600;
   color: var(--accent);
 }
+
+.today-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.today-row label {
+  flex: 1;
+}
+
+.today-row__badge {
+  margin-left: 8px;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #fff5ec;
+  color: var(--accent);
+}
+
+.today-row__remove {
+  width: 36px;
+  height: 36px;
+  border: 0;
+  background: transparent;
+  font-size: 22px;
+  color: var(--muted);
+  margin-right: 8px;
+}
+
+.adhoc-add {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 12px;
+  background: var(--card);
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+}
+
+.adhoc-add input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 15px;
+  background: #fff;
+}
+
+.adhoc-add button {
+  padding: 10px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  font-size: 14px;
+}
+
+.adhoc-add button[disabled] {
+  opacity: 0.4;
+}

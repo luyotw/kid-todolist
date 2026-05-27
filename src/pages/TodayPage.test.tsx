@@ -81,4 +81,41 @@ describe('TodayPage', () => {
     expect(screen.getByRole('checkbox', { name: '刷牙' })).toBeChecked();
     expect(screen.getByText('今天 1 / 1 完成')).toBeInTheDocument();
   });
+
+  it('adds a one-off task that shows today, counts in progress, and disappears tomorrow', () => {
+    freezeDate('2026-01-05T08:00:00');
+    seedTasks([everyday('a', '刷牙')]);
+    const { unmount } = render(<TodayPage />);
+
+    const input = screen.getByLabelText('臨時加一個今天的任務');
+    fireEvent.change(input, { target: { value: '簽聯絡簿' } });
+    fireEvent.click(screen.getByRole('button', { name: '加' }));
+
+    expect(screen.getByText('簽聯絡簿')).toBeInTheDocument();
+    expect(screen.getByText('今天 0 / 2 完成')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: '簽聯絡簿' }));
+    expect(screen.getByText('今天 1 / 2 完成')).toBeInTheDocument();
+    unmount();
+
+    // Next day: yesterday's adhoc task is gone
+    freezeDate('2026-01-06T08:00:00');
+    render(<TodayPage />);
+    expect(screen.queryByText('簽聯絡簿')).not.toBeInTheDocument();
+    expect(screen.getByText('今天 0 / 1 完成')).toBeInTheDocument();
+  });
+
+  it('lets the user delete an adhoc task before checking it', () => {
+    freezeDate('2026-01-05T08:00:00');
+    seedTasks([]);
+    render(<TodayPage />);
+
+    const input = screen.getByLabelText('臨時加一個今天的任務');
+    fireEvent.change(input, { target: { value: '寄包裹' } });
+    fireEvent.click(screen.getByRole('button', { name: '加' }));
+
+    expect(screen.getByText('寄包裹')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '刪除臨時任務 寄包裹' }));
+    expect(screen.queryByText('寄包裹')).not.toBeInTheDocument();
+  });
 });

@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { countProgress, getTodayTasks } from './today';
-import { ALL_WEEKDAYS, SCHOOL_DAYS, WEEKEND, type Task } from '../types';
+import { buildTodayItems, countProgress, getTodayTasks } from './today';
+import {
+  ALL_WEEKDAYS,
+  SCHOOL_DAYS,
+  WEEKEND,
+  type AdhocTask,
+  type Task,
+} from '../types';
 
 const MON = new Date('2026-01-05T08:00:00'); // weekday 1
 const SAT = new Date('2026-01-10T08:00:00'); // weekday 6
@@ -12,6 +18,13 @@ const t = (id: string, weekdays: Task['weekdays']): Task => ({
   createdAt: 0,
 });
 
+const a = (id: string, date: string): AdhocTask => ({
+  id,
+  title: id,
+  date,
+  createdAt: 0,
+});
+
 describe('getTodayTasks', () => {
   it('returns only tasks scheduled today', () => {
     const tasks = [
@@ -20,26 +33,44 @@ describe('getTodayTasks', () => {
       t('weekend', WEEKEND),
     ];
     const monItems = getTodayTasks(tasks, new Set(), MON);
-    expect(monItems.map((i) => i.task.id)).toEqual(['every', 'school']);
+    expect(monItems.map((i) => i.id)).toEqual(['every', 'school']);
 
     const satItems = getTodayTasks(tasks, new Set(), SAT);
-    expect(satItems.map((i) => i.task.id)).toEqual(['every', 'weekend']);
+    expect(satItems.map((i) => i.id)).toEqual(['every', 'weekend']);
   });
 
   it('marks tasks as completed when their id is in the completion set', () => {
     const tasks = [t('a', ALL_WEEKDAYS), t('b', ALL_WEEKDAYS)];
     const items = getTodayTasks(tasks, new Set(['a']), MON);
-    expect(items.find((i) => i.task.id === 'a')?.completed).toBe(true);
-    expect(items.find((i) => i.task.id === 'b')?.completed).toBe(false);
+    expect(items.find((i) => i.id === 'a')?.completed).toBe(true);
+    expect(items.find((i) => i.id === 'b')?.completed).toBe(false);
   });
 
   it('uses date-specific completions: yesterday flips do not carry over', () => {
     const tasks = [t('a', ALL_WEEKDAYS)];
-    // Mon completions = {a}; Tue completions = {} — same task, different days
     const monItems = getTodayTasks(tasks, new Set(['a']), MON);
     const tueItems = getTodayTasks(tasks, new Set(), new Date('2026-01-06T08:00:00'));
     expect(monItems[0].completed).toBe(true);
     expect(tueItems[0].completed).toBe(false);
+  });
+});
+
+describe('buildTodayItems', () => {
+  it('merges scheduled tasks and adhoc tasks for the day', () => {
+    const tasks = [t('a', ALL_WEEKDAYS)];
+    const adhoc = [a('x', '2026-01-05')];
+    const items = buildTodayItems(tasks, adhoc, new Set(), MON);
+    expect(items.map((i) => ({ id: i.id, source: i.source }))).toEqual([
+      { id: 'a', source: 'task' },
+      { id: 'x', source: 'adhoc' },
+    ]);
+  });
+
+  it('counts adhoc tasks in completion progress', () => {
+    const tasks = [t('a', ALL_WEEKDAYS)];
+    const adhoc = [a('x', '2026-01-05')];
+    const items = buildTodayItems(tasks, adhoc, new Set(['a', 'x']), MON);
+    expect(countProgress(items)).toEqual({ done: 2, total: 2, allDone: true });
   });
 });
 
