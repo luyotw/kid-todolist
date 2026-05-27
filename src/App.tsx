@@ -1,8 +1,15 @@
 import { useState } from 'react';
+import SettingsPage from './pages/SettingsPage';
 import TasksPage from './pages/TasksPage';
 import TodayPage from './pages/TodayPage';
 
-type Tab = 'today' | 'tasks';
+type Tab = 'today' | 'tasks' | 'settings';
+
+const TAB_TITLE: Record<Tab, string> = {
+  today: '今天',
+  tasks: '任務',
+  settings: '設定',
+};
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('today');
@@ -10,26 +17,24 @@ export default function App() {
   return (
     <div className="app-shell">
       <header className="app-header">
-        <h1>{tab === 'today' ? '今天' : '任務'}</h1>
+        <h1>{TAB_TITLE[tab]}</h1>
       </header>
       <main className="app-main">
-        {tab === 'today' ? <TodayPage /> : <TasksPage />}
+        {tab === 'today' && <TodayPage />}
+        {tab === 'tasks' && <TasksPage />}
+        {tab === 'settings' && <SettingsPage />}
       </main>
       <nav className="app-tabbar" aria-label="主要導覽">
-        <button
-          type="button"
-          className={tab === 'today' ? 'active' : ''}
-          onClick={() => setTab('today')}
-        >
-          今天
-        </button>
-        <button
-          type="button"
-          className={tab === 'tasks' ? 'active' : ''}
-          onClick={() => setTab('tasks')}
-        >
-          任務
-        </button>
+        {(['today', 'tasks', 'settings'] as Tab[]).map((t) => (
+          <button
+            key={t}
+            type="button"
+            className={tab === t ? 'active' : ''}
+            onClick={() => setTab(t)}
+          >
+            {TAB_TITLE[t]}
+          </button>
+        ))}
       </nav>
     </div>
   );

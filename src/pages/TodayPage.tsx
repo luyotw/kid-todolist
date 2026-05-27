@@ -3,6 +3,7 @@ import { formatDate } from '../lib/date';
 import { buildTodayItems, countProgress } from '../lib/today';
 import { useAdhoc } from '../lib/useAdhoc';
 import { useCompletions } from '../lib/useCompletions';
+import { useReward } from '../lib/useReward';
 import { useTasks } from '../lib/useTasks';
 
 export default function TodayPage() {
@@ -11,6 +12,7 @@ export default function TodayPage() {
   const { tasks } = useTasks();
   const { adhocToday, add: addAdhoc, remove: removeAdhoc } = useAdhoc(dateStr);
   const { completedIds, toggle } = useCompletions(dateStr);
+  const { text: rewardText, defaultText: defaultReward } = useReward();
 
   const items = useMemo(
     () => buildTodayItems(tasks, adhocToday, completedIds, now),
@@ -83,9 +85,12 @@ export default function TodayPage() {
       </form>
 
       {allDone && (
-        <p className="all-done" role="status">
-          今天全部完成了！
-        </p>
+        <div className="all-done" role="status" aria-live="polite">
+          <p className="all-done__heading">今天全部完成了！</p>
+          <p className="all-done__reward">
+            {rewardText.trim() || defaultReward}
+          </p>
+        </div>
       )}
     </div>
   );

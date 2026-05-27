@@ -250,13 +250,60 @@ body {
 
 .all-done {
   margin-top: 24px;
-  padding: 20px;
+  padding: 24px 20px;
   text-align: center;
-  background: #fff5ec;
-  border-radius: 16px;
-  font-size: 18px;
-  font-weight: 600;
+  background: linear-gradient(180deg, #fff5ec 0%, #ffe5d3 100%);
+  border-radius: 20px;
   color: var(--accent);
+}
+
+.all-done__heading {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.all-done__reward {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--fg);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.settings-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-field__label {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.settings-field textarea {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-size: 16px;
+  font-family: inherit;
+  background: var(--card);
+  resize: vertical;
+}
+
+.settings-field__hint {
+  font-size: 13px;
+  color: var(--muted);
 }
 
 .today-row {

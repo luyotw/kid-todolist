@@ -105,6 +105,35 @@ describe('TodayPage', () => {
     expect(screen.getByText('今天 0 / 1 完成')).toBeInTheDocument();
   });
 
+  it('shows custom reward text when set, otherwise falls back to default', () => {
+    freezeDate('2026-01-05T08:00:00');
+    seedTasks([everyday('a', '刷牙')]);
+    storage.set('kid-todolist:reward:v1', '可以吃一根冰棒');
+
+    render(<TodayPage />);
+    fireEvent.click(screen.getByRole('checkbox', { name: '刷牙' }));
+    expect(screen.getByText('可以吃一根冰棒')).toBeInTheDocument();
+  });
+
+  it('falls back to default reward when stored text is empty', () => {
+    freezeDate('2026-01-05T08:00:00');
+    seedTasks([everyday('a', '刷牙')]);
+    storage.set('kid-todolist:reward:v1', '   ');
+
+    render(<TodayPage />);
+    fireEvent.click(screen.getByRole('checkbox', { name: '刷牙' }));
+    expect(screen.getByText('你今天好棒！')).toBeInTheDocument();
+  });
+
+  it('does not show the reward banner when there are zero tasks', () => {
+    freezeDate('2026-01-10T08:00:00'); // Saturday with no weekend tasks
+    seedTasks([
+      { id: 'a', title: '上學日才有', weekdays: SCHOOL_DAYS, createdAt: 0 },
+    ]);
+    render(<TodayPage />);
+    expect(screen.queryByText(/今天全部完成了/)).not.toBeInTheDocument();
+  });
+
   it('lets the user delete an adhoc task before checking it', () => {
     freezeDate('2026-01-05T08:00:00');
     seedTasks([]);
