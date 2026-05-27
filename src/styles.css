@@ -203,3 +203,58 @@ body {
   color: #fff;
   border-color: var(--accent);
 }
+
+.today-progress {
+  font-size: 14px;
+  color: var(--muted);
+  margin: 0 0 12px;
+}
+
+.today-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.today-row {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.today-row label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+}
+
+.today-row input[type='checkbox'] {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--accent);
+}
+
+.today-row__title {
+  font-size: 17px;
+}
+
+.today-row--done .today-row__title {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
+.all-done {
+  margin-top: 24px;
+  padding: 20px;
+  text-align: center;
+  background: #fff5ec;
+  border-radius: 16px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--accent);
+}

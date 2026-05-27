@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import TasksPage from './pages/TasksPage';
+import TodayPage from './pages/TodayPage';
 
 type Tab = 'today' | 'tasks';
 
 export default function App() {
-  const [tab, setTab] = useState<Tab>('tasks');
+  const [tab, setTab] = useState<Tab>('today');
 
   return (
     <div className="app-shell">
@@ -12,11 +13,7 @@ export default function App() {
         <h1>{tab === 'today' ? '今天' : '任務'}</h1>
       </header>
       <main className="app-main">
-        {tab === 'today' ? (
-          <p className="placeholder">今日清單還沒開始做。</p>
-        ) : (
-          <TasksPage />
-        )}
+        {tab === 'today' ? <TodayPage /> : <TasksPage />}
       </main>
       <nav className="app-tabbar" aria-label="主要導覽">
         <button
