@@ -1,15 +1,26 @@
 import { describe, expect, it } from 'vitest';
 import { createTask, deleteTask, updateTask } from './tasks';
-import type { Task } from '../types';
+import { ALL_WEEKDAYS, SCHOOL_DAYS, type Task } from '../types';
 
-const seed: Task = { id: 'a', title: '刷牙', createdAt: 1 };
+const seed: Task = {
+  id: 'a',
+  title: '刷牙',
+  weekdays: ALL_WEEKDAYS,
+  createdAt: 1,
+};
 
 describe('createTask', () => {
-  it('appends a new task with trimmed title', () => {
+  it('appends a new task with trimmed title and default every-day schedule', () => {
     const result = createTask([seed], '  寫功課  ');
     expect(result).toHaveLength(2);
     expect(result[1].title).toBe('寫功課');
     expect(result[1].id).not.toBe('a');
+    expect(result[1].weekdays).toEqual(ALL_WEEKDAYS);
+  });
+
+  it('accepts a custom weekday list and dedupes/sorts it', () => {
+    const result = createTask([], '寫功課', [3, 1, 1, 5]);
+    expect(result[0].weekdays).toEqual([1, 3, 5]);
   });
 
   it('ignores empty or whitespace-only titles', () => {
@@ -24,13 +35,23 @@ describe('updateTask', () => {
     expect(result[0].title).toBe('刷牙刷乾淨');
   });
 
+  it('updates weekdays and dedupes/sorts', () => {
+    const result = updateTask([seed], 'a', { weekdays: [5, 1, 1] });
+    expect(result[0].weekdays).toEqual([1, 5]);
+  });
+
   it('ignores empty title updates', () => {
     const result = updateTask([seed], 'a', { title: '   ' });
     expect(result[0].title).toBe('刷牙');
   });
 
   it('leaves other tasks alone', () => {
-    const other: Task = { id: 'b', title: '洗澡', createdAt: 2 };
+    const other: Task = {
+      id: 'b',
+      title: '洗澡',
+      weekdays: SCHOOL_DAYS,
+      createdAt: 2,
+    };
     const result = updateTask([seed, other], 'a', { title: '刷牙好' });
     expect(result[1]).toBe(other);
   });
@@ -38,7 +59,12 @@ describe('updateTask', () => {
 
 describe('deleteTask', () => {
   it('removes the matching task', () => {
-    const other: Task = { id: 'b', title: '洗澡', createdAt: 2 };
+    const other: Task = {
+      id: 'b',
+      title: '洗澡',
+      weekdays: ALL_WEEKDAYS,
+      createdAt: 2,
+    };
     const result = deleteTask([seed, other], 'a');
     expect(result).toEqual([other]);
   });

@@ -9,7 +9,7 @@ describe('TasksPage', () => {
     expect(screen.getByText(/還沒設定任務/)).toBeInTheDocument();
   });
 
-  it('adds, edits, and deletes a task', async () => {
+  it('adds, edits, and deletes a task (default every-day schedule)', async () => {
     const user = userEvent.setup();
     vi.spyOn(window, 'confirm').mockReturnValue(true);
 
@@ -19,6 +19,7 @@ describe('TasksPage', () => {
     await user.click(screen.getByRole('button', { name: '加' }));
 
     expect(screen.getByText('刷牙')).toBeInTheDocument();
+    expect(screen.getAllByLabelText('排程')[0]).toHaveTextContent('每天');
     expect(screen.queryByText(/還沒設定任務/)).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: '編輯 刷牙' }));
@@ -32,6 +33,20 @@ describe('TasksPage', () => {
     await user.click(screen.getByRole('button', { name: '刪除 刷牙刷乾淨' }));
     expect(screen.queryByText('刷牙刷乾淨')).not.toBeInTheDocument();
     expect(screen.getByText(/還沒設定任務/)).toBeInTheDocument();
+  });
+
+  it('switches schedule to school-days via preset', async () => {
+    const user = userEvent.setup();
+    render(<TasksPage />);
+
+    await user.type(screen.getByLabelText('新任務'), '寫聯絡簿');
+    // Add form has its own picker; choose 上學日 in the add form (first match).
+    const schoolDayButtons = screen.getAllByRole('button', { name: '上學日' });
+    await user.click(schoolDayButtons[0]);
+    await user.click(screen.getByRole('button', { name: '加' }));
+
+    expect(screen.getByText('寫聯絡簿')).toBeInTheDocument();
+    expect(screen.getAllByLabelText('排程')[0]).toHaveTextContent('上學日');
   });
 
   it('persists tasks across remount', async () => {

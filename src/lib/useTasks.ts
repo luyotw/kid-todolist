@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { Task } from '../types';
+import type { Task, Weekday } from '../types';
 import { storage } from './storage';
 import {
   createTask as createTaskPure,
@@ -18,12 +18,12 @@ export function useTasks() {
     storage.set(TASKS_KEY, tasks);
   }, [tasks]);
 
-  const create = useCallback((title: string) => {
-    setTasks((prev) => createTaskPure(prev, title));
+  const create = useCallback((title: string, weekdays?: Weekday[]) => {
+    setTasks((prev) => createTaskPure(prev, title, weekdays));
   }, []);
 
   const update = useCallback(
-    (id: string, patch: Partial<Pick<Task, 'title'>>) => {
+    (id: string, patch: Partial<Pick<Task, 'title' | 'weekdays'>>) => {
       setTasks((prev) => updateTaskPure(prev, id, patch));
     },
     [],
