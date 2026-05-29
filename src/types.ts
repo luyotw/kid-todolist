@@ -9,6 +9,8 @@ export interface Task {
   title: string;
   weekdays: Weekday[];
   createdAt: number;
+  /** Completion points; omitted or undefined means 1. */
+  points?: number;
 }
 
 /** One-off task that only shows on a specific date (`YYYY-MM-DD`). */
