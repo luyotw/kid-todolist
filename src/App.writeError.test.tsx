@@ -1,0 +1,62 @@
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { describe, expect, it, vi } from 'vitest';
+import App from './App';
+
+const { writeDoc } = vi.hoisted(() => ({
+  writeDoc: vi.fn().mockRejectedValue(new Error('network')),
+}));
+
+vi.mock('./lib/firebase', () => ({
+  isFirebaseConfigured: true,
+  auth: {},
+  db: {},
+  app: {},
+}));
+
+vi.mock('./lib/auth', () => ({
+  AuthProvider: ({ children }: { children: React.ReactNode }) => children,
+  useAuth: () => ({
+    user: { uid: 'u1', displayName: '家長' },
+    loading: false,
+    configured: true,
+    signInWithGoogle: vi.fn(),
+    signOutUser: vi.fn(),
+  }),
+}));
+
+vi.mock('./lib/firestore', () => ({
+  paths: {
+    tasks: (uid: string) => `users/${uid}/tasks`,
+    adhoc: (uid: string) => `users/${uid}/adhoc`,
+    completionsMain: (uid: string) => `users/${uid}/completions/main`,
+    settings: (uid: string) => `users/${uid}/meta/settings`,
+  },
+  subscribeCollection: (_path: string, onData: (items: unknown[]) => void) => {
+    onData([]);
+    return vi.fn();
+  },
+  subscribeDoc: (_path: string, onData: (data: unknown) => void) => {
+    onData(null);
+    return vi.fn();
+  },
+  writeDoc,
+  writeSingleton: vi.fn().mockResolvedValue(undefined),
+  removeDoc: vi.fn().mockResolvedValue(undefined),
+}));
+
+describe('App write-error banner', () => {
+  it('shows alert when cloud write fails', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByRole('navigation', { name: '主要導覽' });
+
+    await user.click(screen.getByRole('button', { name: '任務' }));
+    await user.type(screen.getByLabelText('新任務'), '刷牙');
+    await user.click(screen.getByRole('button', { name: '加' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/儲存失敗/);
+    });
+  });
+});
