@@ -52,4 +52,12 @@ describe('App offline banner', () => {
     render(<App />);
     expect(await screen.findByRole('status')).toHaveTextContent(/目前離線/);
   });
+
+  it('shows main navigation while logged in and offline', async () => {
+    render(<App />);
+    expect(await screen.findByRole('navigation', { name: '主要導覽' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '今天' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '任務' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '設定' })).toBeInTheDocument();
+  });
 });

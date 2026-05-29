@@ -1,9 +1,17 @@
 import { useState } from 'react';
 import { useAuth } from '../lib/auth';
+import { useOnlineStatus } from '../lib/cloudSync';
+import { shouldShowOfflineLoginHint } from '../lib/pwa/offlineGate';
 
 export default function LoginScreen() {
-  const { configured, signInWithGoogle } = useAuth();
+  const { configured, user, signInWithGoogle } = useAuth();
+  const online = useOnlineStatus();
   const [error, setError] = useState<string | null>(null);
+  const offlineLoginHint = shouldShowOfflineLoginHint({
+    configured,
+    user,
+    online,
+  });
 
   if (!configured) {
     return (
@@ -12,6 +20,17 @@ export default function LoginScreen() {
         <p className="login-screen__hint">
           尚未設定 Firebase。請複製 <code>.env.example</code> 為{' '}
           <code>.env.local</code> 並填入你的 Firebase 專案設定，再重新啟動。
+        </p>
+      </div>
+    );
+  }
+
+  if (offlineLoginHint) {
+    return (
+      <div className="login-screen">
+        <h1>每天的事</h1>
+        <p className="login-screen__hint" role="status">
+          請先連上網路，才能首次使用或登入。
         </p>
       </div>
     );

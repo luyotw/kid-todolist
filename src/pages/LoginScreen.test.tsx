@@ -7,6 +7,7 @@ const signInWithGoogle = vi.fn();
 vi.mock('../lib/auth', () => ({
   useAuth: () => ({
     configured: true,
+    user: null,
     signInWithGoogle,
   }),
 }));
