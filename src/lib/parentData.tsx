@@ -44,8 +44,9 @@ export const DEFAULT_REWARD = '你今天好棒！';
 
 type StoredCompletions = Record<string, string[]>;
 
-interface CompletionsDoc {
-  dates: StoredCompletions;
+interface CompletionDay {
+  id: string;
+  ids?: string[];
 }
 
 interface SettingsDoc {
@@ -164,10 +165,12 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!cloudMode) return;
     setCompletionsLoading(true);
-    return subscribeDoc<CompletionsDoc>(
-      paths.completionsMain(uid),
-      (data) => {
-        setCloudCompletions(data?.dates ?? {});
+    return subscribeCollection<CompletionDay>(
+      paths.completions(uid),
+      (items) => {
+        const next: StoredCompletions = {};
+        for (const day of items) next[day.id] = day.ids ?? [];
+        setCloudCompletions(next);
         setCompletionsLoading(false);
         setCompletionsError(null);
       },
@@ -339,12 +342,15 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
       };
       if (cloudMode) {
         const next = apply(allCompletions);
+        const ids = next[dateStr] ?? [];
         setCloudCompletions(next);
-        void runCloudWrite(
-          () =>
-            writeSingleton(paths.completionsMain(uid), { dates: next }),
-          setCompletionsErrorMsg,
-        );
+        void runCloudWrite(async () => {
+          if (ids.length === 0) {
+            await removeDoc(paths.completions(uid), dateStr);
+            return;
+          }
+          await writeDoc(paths.completions(uid), dateStr, { ids });
+        }, setCompletionsErrorMsg);
         return;
       }
       localCompletions.setAll(apply);

@@ -7,7 +7,7 @@ describe('firestore paths', () => {
   it('scopes all data under users/{uid}', () => {
     expect(paths.tasks(uid)).toBe('users/parent-abc/tasks');
     expect(paths.adhoc(uid)).toBe('users/parent-abc/adhoc');
-    expect(paths.completionsMain(uid)).toBe('users/parent-abc/completions/main');
+    expect(paths.completions(uid)).toBe('users/parent-abc/completions');
     expect(paths.settings(uid)).toBe('users/parent-abc/meta/settings');
   });
 });

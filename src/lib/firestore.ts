@@ -16,7 +16,7 @@ const userRoot = (uid: string) => `users/${uid}`;
 export const paths = {
   tasks: (uid: string) => `${userRoot(uid)}/tasks`,
   adhoc: (uid: string) => `${userRoot(uid)}/adhoc`,
-  completionsMain: (uid: string) => `${userRoot(uid)}/completions/main`,
+  completions: (uid: string) => `${userRoot(uid)}/completions`,
   settings: (uid: string) => `${userRoot(uid)}/meta/settings`,
 };
 

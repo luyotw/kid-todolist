@@ -24,7 +24,7 @@ vi.mock('./lib/firestore', () => ({
   paths: {
     tasks: (uid: string) => `users/${uid}/tasks`,
     adhoc: (uid: string) => `users/${uid}/adhoc`,
-    completionsMain: (uid: string) => `users/${uid}/completions/main`,
+    completions: (uid: string) => `users/${uid}/completions`,
     settings: (uid: string) => `users/${uid}/meta/settings`,
   },
   subscribeCollection: (_path: string, onData: (items: unknown[]) => void) => {
