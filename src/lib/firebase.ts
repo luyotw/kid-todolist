@@ -1,6 +1,10 @@
 import { getApp, getApps, initializeApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, type Auth } from 'firebase/auth';
-import { getFirestore, type Firestore } from 'firebase/firestore';
+import {
+  enableIndexedDbPersistence,
+  getFirestore,
+  type Firestore,
+} from 'firebase/firestore';
 
 const config = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -21,3 +25,9 @@ export const app: FirebaseApp = getApps().length
 
 export const auth: Auth = getAuth(app);
 export const db: Firestore = getFirestore(app);
+
+if (isFirebaseConfigured && typeof window !== 'undefined') {
+  void enableIndexedDbPersistence(db).catch(() => {
+    // Another tab may already hold persistence; offline cache still works there.
+  });
+}
