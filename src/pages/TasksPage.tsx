@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTasks } from '../lib/useTasks';
+import { getTaskPoints } from '../lib/points';
 import {
   ALL_WEEKDAYS,
   SCHOOL_DAYS,
@@ -22,14 +23,16 @@ export default function TasksPage() {
   const { tasks, create, update, remove } = useTasks();
   const [newTitle, setNewTitle] = useState('');
   const [newWeekdays, setNewWeekdays] = useState<Weekday[]>(ALL_WEEKDAYS);
+  const [newPoints, setNewPoints] = useState(1);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim() || newWeekdays.length === 0) return;
-    create(newTitle, newWeekdays);
+    create(newTitle, newWeekdays, newPoints);
     setNewTitle('');
     setNewWeekdays(ALL_WEEKDAYS);
+    setNewPoints(1);
   };
 
   return (
@@ -41,6 +44,16 @@ export default function TasksPage() {
           value={newTitle}
           onChange={(e) => setNewTitle(e.target.value)}
         />
+        <label className="task-points-field">
+          <span>點數</span>
+          <input
+            type="number"
+            min={1}
+            aria-label="新任務點數"
+            value={newPoints}
+            onChange={(e) => setNewPoints(Number(e.target.value))}
+          />
+        </label>
         <WeekdayPicker value={newWeekdays} onChange={setNewWeekdays} />
         <button
           type="submit"
@@ -61,8 +74,8 @@ export default function TasksPage() {
               editing={editingId === task.id}
               onStartEdit={() => setEditingId(task.id)}
               onCancelEdit={() => setEditingId(null)}
-              onSave={(title, weekdays) => {
-                update(task.id, { title, weekdays });
+              onSave={(title, weekdays, points) => {
+                update(task.id, { title, weekdays, points });
                 setEditingId(null);
               }}
               onDelete={() => {
@@ -81,7 +94,7 @@ interface TaskRowProps {
   editing: boolean;
   onStartEdit: () => void;
   onCancelEdit: () => void;
-  onSave: (title: string, weekdays: Weekday[]) => void;
+  onSave: (title: string, weekdays: Weekday[], points: number) => void;
   onDelete: () => void;
 }
 
@@ -95,6 +108,7 @@ function TaskRow({
 }: TaskRowProps) {
   const [draftTitle, setDraftTitle] = useState(task.title);
   const [draftWeekdays, setDraftWeekdays] = useState<Weekday[]>(task.weekdays);
+  const [draftPoints, setDraftPoints] = useState(getTaskPoints(task));
 
   if (editing) {
     return (
@@ -105,11 +119,21 @@ function TaskRow({
           autoFocus
           onChange={(e) => setDraftTitle(e.target.value)}
         />
+        <label className="task-points-field">
+          <span>點數</span>
+          <input
+            type="number"
+            min={1}
+            aria-label="編輯任務點數"
+            value={draftPoints}
+            onChange={(e) => setDraftPoints(Number(e.target.value))}
+          />
+        </label>
         <WeekdayPicker value={draftWeekdays} onChange={setDraftWeekdays} />
         <div className="task-row__actions">
           <button
             type="button"
-            onClick={() => onSave(draftTitle, draftWeekdays)}
+            onClick={() => onSave(draftTitle, draftWeekdays, draftPoints)}
             disabled={!draftTitle.trim() || draftWeekdays.length === 0}
           >
             存
@@ -119,6 +143,7 @@ function TaskRow({
             onClick={() => {
               setDraftTitle(task.title);
               setDraftWeekdays(task.weekdays);
+              setDraftPoints(getTaskPoints(task));
               onCancelEdit();
             }}
           >
@@ -132,6 +157,9 @@ function TaskRow({
   return (
     <li className="task-row">
       <span className="task-title">{task.title}</span>
+      <span className="task-points" aria-label="點數">
+        {getTaskPoints(task)} 點
+      </span>
       <span className="task-schedule" aria-label="排程">
         {formatWeekdays(task.weekdays)}
       </span>

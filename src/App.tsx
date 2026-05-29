@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './lib/auth';
 import {
   ParentDataProvider,
   useDataSync,
+  usePoints,
 } from './lib/parentData';
 import LoginScreen from './pages/LoginScreen';
 import SettingsPage from './pages/SettingsPage';
@@ -54,6 +55,7 @@ function DataReadyGate() {
 function AppShell() {
   const { user, signOutUser, configured } = useAuth();
   const sync = useDataSync();
+  const { balance } = usePoints();
   const [tab, setTab] = useState<Tab>('today');
   const [confirmSignOut, setConfirmSignOut] = useState(false);
 
@@ -76,6 +78,9 @@ function AppShell() {
       <header className="app-header">
         <div className="app-header__title-row">
           <h1>{TAB_TITLE[tab]}</h1>
+          <span className="app-header__points" data-testid="points-balance">
+            點數 {balance}
+          </span>
           {configured && user && (
             <div className="app-header__identity" data-testid="user-identity">
               {user.photoURL && (

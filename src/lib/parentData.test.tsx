@@ -7,6 +7,7 @@ import {
   useReward,
   useCompletions,
   useAdhoc,
+  usePoints,
 } from './parentData';
 import * as firestore from './firestore';
 
@@ -144,5 +145,155 @@ describe('useAdhoc cloud mode', () => {
     expect(result.current.adhocToday.map((item) => item.title)).toEqual([
       '今天的事',
     ]);
+  });
+});
+
+describe('usePoints cloud mode — scheduled toggle credits balance', () => {
+  beforeEach(() => {
+    vi.spyOn(firestore, 'subscribeDoc').mockImplementation((_path, onData) => {
+      onData({
+        rewardText: '棒',
+        rewardCost: 3,
+        pointsBalance: 0,
+      });
+      return vi.fn();
+    });
+    vi.spyOn(firestore, 'writeDoc').mockResolvedValue(undefined);
+    vi.spyOn(firestore, 'writeSingleton').mockResolvedValue(undefined);
+    vi.spyOn(firestore, 'removeDoc').mockResolvedValue(undefined);
+    vi.spyOn(firestore, 'subscribeCollection').mockImplementation((path, onData) => {
+      if (path.includes('tasks')) {
+        onData([
+          {
+            id: 'task-a',
+            title: '刷牙',
+            weekdays: [0, 1, 2, 3, 4, 5, 6],
+            createdAt: 0,
+            points: 3,
+          },
+        ]);
+      } else {
+        onData([]);
+      }
+      return vi.fn();
+    });
+  });
+
+  it('credits balance when a scheduled task is completed', async () => {
+    const { result } = renderHook(
+      () => ({
+        points: usePoints(),
+        completions: useCompletions('2026-01-05'),
+      }),
+      { wrapper },
+    );
+
+    await waitFor(() => expect(result.current.points.sync.ready).toBe(true));
+
+    act(() => result.current.completions.toggle('task-a'));
+
+    await waitFor(() => expect(result.current.points.balance).toBe(3));
+    expect(firestore.writeSingleton).toHaveBeenCalledWith(
+      'users/test-uid/meta/settings',
+      expect.objectContaining({ pointsBalance: 3 }),
+    );
+  });
+});
+
+describe('usePoints cloud mode — uncheck debits with floor', () => {
+  beforeEach(() => {
+    vi.spyOn(firestore, 'subscribeDoc').mockImplementation((_path, onData) => {
+      onData({
+        rewardText: '棒',
+        rewardCost: 1,
+        pointsBalance: 1,
+      });
+      return vi.fn();
+    });
+    vi.spyOn(firestore, 'writeDoc').mockResolvedValue(undefined);
+    vi.spyOn(firestore, 'writeSingleton').mockResolvedValue(undefined);
+    vi.spyOn(firestore, 'removeDoc').mockResolvedValue(undefined);
+    vi.spyOn(firestore, 'subscribeCollection').mockImplementation((path, onData) => {
+      if (path.includes('tasks')) {
+        onData([
+          {
+            id: 'task-a',
+            title: '刷牙',
+            weekdays: [0, 1, 2, 3, 4, 5, 6],
+            createdAt: 0,
+            points: 3,
+          },
+        ]);
+      } else if (path.includes('completions')) {
+        onData([{ id: '2026-01-05', ids: ['task-a'] }]);
+      } else {
+        onData([]);
+      }
+      return vi.fn();
+    });
+  });
+
+  it('floors balance at zero when uncompleting costs more than balance', async () => {
+    const { result } = renderHook(
+      () => ({
+        points: usePoints(),
+        completions: useCompletions('2026-01-05'),
+      }),
+      { wrapper },
+    );
+
+    await waitFor(() => expect(result.current.points.sync.ready).toBe(true));
+    expect(result.current.points.balance).toBe(1);
+
+    act(() => result.current.completions.toggle('task-a'));
+
+    await waitFor(() => expect(result.current.points.balance).toBe(0));
+  });
+});
+
+describe('usePoints cloud mode — adhoc toggle no points', () => {
+  beforeEach(() => {
+    vi.spyOn(firestore, 'subscribeDoc').mockImplementation((_path, onData) => {
+      onData({ rewardText: '棒', rewardCost: 1, pointsBalance: 2 });
+      return vi.fn();
+    });
+    vi.spyOn(firestore, 'writeDoc').mockResolvedValue(undefined);
+    vi.spyOn(firestore, 'writeSingleton').mockResolvedValue(undefined);
+    vi.spyOn(firestore, 'removeDoc').mockResolvedValue(undefined);
+    vi.spyOn(firestore, 'subscribeCollection').mockImplementation((path, onData) => {
+      if (path.includes('adhoc')) {
+        onData([
+          {
+            id: 'adhoc-1',
+            title: '臨時',
+            date: '2026-01-05',
+            createdAt: 0,
+          },
+        ]);
+      } else {
+        onData([]);
+      }
+      return vi.fn();
+    });
+  });
+
+  it('does not change balance when toggling adhoc tasks', async () => {
+    const { result } = renderHook(
+      () => ({
+        points: usePoints(),
+        completions: useCompletions('2026-01-05'),
+      }),
+      { wrapper },
+    );
+
+    await waitFor(() => expect(result.current.points.sync.ready).toBe(true));
+
+    act(() => result.current.completions.toggle('adhoc-1'));
+
+    await waitFor(() =>
+      expect(result.current.completions.completedIds.has('adhoc-1')).toBe(true),
+    );
+    expect(result.current.points.balance).toBe(2);
+    expect(firestore.writeSingleton).not.toHaveBeenCalled();
   });
 });

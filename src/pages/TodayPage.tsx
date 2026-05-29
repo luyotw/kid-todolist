@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { formatDate } from '../lib/date';
+import { getTaskPoints } from '../lib/points';
 import { buildTodayItems, countProgress } from '../lib/today';
 import { useAdhoc } from '../lib/useAdhoc';
 import { useCompletions } from '../lib/useCompletions';
@@ -53,6 +54,15 @@ export default function TodayPage() {
                   aria-label={item.title}
                 />
                 <span className="today-row__title">{item.title}</span>
+                {item.source === 'task' && (() => {
+                  const task = tasks.find((t) => t.id === item.id);
+                  if (!task) return null;
+                  return (
+                    <span className="today-row__points">
+                      {getTaskPoints(task)} 點
+                    </span>
+                  );
+                })()}
                 {item.source === 'adhoc' && (
                   <span className="today-row__badge">今天</span>
                 )}

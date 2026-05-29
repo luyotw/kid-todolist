@@ -60,4 +60,23 @@ describe('TasksPage', () => {
     renderWithProviders(<TasksPage />);
     expect(screen.getByText('寫功課')).toBeInTheDocument();
   });
+
+  it('creates and edits tasks with custom points', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<TasksPage />);
+
+    await user.type(screen.getByLabelText('新任務'), '整理房間');
+    await user.clear(screen.getByLabelText('新任務點數'));
+    await user.type(screen.getByLabelText('新任務點數'), '3');
+    await user.click(screen.getByRole('button', { name: '加' }));
+
+    expect(screen.getByText('3 點')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '編輯 整理房間' }));
+    await user.clear(screen.getByLabelText('編輯任務點數'));
+    await user.type(screen.getByLabelText('編輯任務點數'), '5');
+    await user.click(screen.getByRole('button', { name: '存' }));
+
+    expect(screen.getByText('5 點')).toBeInTheDocument();
+  });
 });
