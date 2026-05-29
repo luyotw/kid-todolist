@@ -27,6 +27,16 @@ describe('createTask', () => {
     expect(createTask([seed], '')).toEqual([seed]);
     expect(createTask([seed], '   ')).toEqual([seed]);
   });
+
+  it('stores normalized points when provided', () => {
+    const result = createTask([], '寫功課', ALL_WEEKDAYS, 3);
+    expect(result[0].points).toBe(3);
+  });
+
+  it('clamps invalid points to at least 1', () => {
+    const result = createTask([], '寫功課', ALL_WEEKDAYS, 0);
+    expect(result[0].points).toBe(1);
+  });
 });
 
 describe('updateTask', () => {
@@ -54,6 +64,11 @@ describe('updateTask', () => {
     };
     const result = updateTask([seed, other], 'a', { title: '刷牙好' });
     expect(result[1]).toBe(other);
+  });
+
+  it('updates points and clamps invalid values', () => {
+    expect(updateTask([seed], 'a', { points: 5 })[0].points).toBe(5);
+    expect(updateTask([seed], 'a', { points: 0 })[0].points).toBe(1);
   });
 });
 

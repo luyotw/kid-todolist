@@ -1,10 +1,12 @@
 import { ALL_WEEKDAYS, type Task, type Weekday } from '../types';
 import { newId } from './ids';
+import { normalizeTaskPoints } from './points';
 
 export function createTask(
   tasks: Task[],
   title: string,
   weekdays: Weekday[] = ALL_WEEKDAYS,
+  points?: number,
 ): Task[] {
   const trimmed = title.trim();
   if (!trimmed) return tasks;
@@ -13,6 +15,7 @@ export function createTask(
     title: trimmed,
     weekdays: dedupeWeekdays(weekdays),
     createdAt: Date.now(),
+    ...(points !== undefined ? { points: normalizeTaskPoints(points) } : {}),
   };
   return [...tasks, task];
 }
@@ -20,7 +23,7 @@ export function createTask(
 export function updateTask(
   tasks: Task[],
   id: string,
-  patch: Partial<Pick<Task, 'title' | 'weekdays'>>,
+  patch: Partial<Pick<Task, 'title' | 'weekdays' | 'points'>>,
 ): Task[] {
   return tasks.map((t) => {
     if (t.id !== id) return t;
@@ -32,6 +35,9 @@ export function updateTask(
     }
     if (patch.weekdays !== undefined) {
       next.weekdays = dedupeWeekdays(patch.weekdays);
+    }
+    if (patch.points !== undefined) {
+      next.points = normalizeTaskPoints(patch.points);
     }
     return next;
   });
