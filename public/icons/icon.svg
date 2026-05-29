@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#fef9f3"/>
+  <rect x="72" y="128" width="368" height="44" rx="14" fill="#e8b88a"/>
+  <rect x="72" y="204" width="300" height="44" rx="14" fill="#e8b88a"/>
+  <rect x="72" y="280" width="240" height="44" rx="14" fill="#e8b88a"/>
+  <text x="256" y="400" text-anchor="middle" font-size="56" font-weight="600" fill="#8b6914" font-family="system-ui, sans-serif">Ï)</text>
+</svg>
