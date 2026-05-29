@@ -28,14 +28,26 @@ export default function LoginScreen() {
           setError(null);
           try {
             await signInWithGoogle();
-          } catch {
-            setError('登入失敗，請再試一次。');
+          } catch (err: unknown) {
+            const code =
+              err && typeof err === 'object' && 'code' in err
+                ? String((err as { code: string }).code)
+                : '';
+            if (code === 'auth/popup-closed-by-user') {
+              setError('已取消登入。');
+            } else {
+              setError('登入失敗，請再試一次。');
+            }
           }
         }}
       >
         使用 Google 登入
       </button>
-      {error && <p className="login-screen__error">{error}</p>}
+      {error && (
+        <p className="login-screen__error" role="alert">
+          {error}
+        </p>
+      )}
     </div>
   );
 }
