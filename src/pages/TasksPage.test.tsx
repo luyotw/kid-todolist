@@ -1,11 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { renderWithProviders } from '../lib/testUtils';
 import TasksPage from './TasksPage';
 
 describe('TasksPage', () => {
   it('shows empty state when there are no tasks', () => {
-    render(<TasksPage />);
+    renderWithProviders(<TasksPage />);
     expect(screen.getByText(/還沒設定任務/)).toBeInTheDocument();
   });
 
@@ -13,7 +14,7 @@ describe('TasksPage', () => {
     const user = userEvent.setup();
     vi.spyOn(window, 'confirm').mockReturnValue(true);
 
-    render(<TasksPage />);
+    renderWithProviders(<TasksPage />);
 
     await user.type(screen.getByLabelText('新任務'), '刷牙');
     await user.click(screen.getByRole('button', { name: '加' }));
@@ -37,7 +38,7 @@ describe('TasksPage', () => {
 
   it('switches schedule to school-days via preset', async () => {
     const user = userEvent.setup();
-    render(<TasksPage />);
+    renderWithProviders(<TasksPage />);
 
     await user.type(screen.getByLabelText('新任務'), '寫聯絡簿');
     // Add form has its own picker; choose 上學日 in the add form (first match).
@@ -51,12 +52,12 @@ describe('TasksPage', () => {
 
   it('persists tasks across remount', async () => {
     const user = userEvent.setup();
-    const { unmount } = render(<TasksPage />);
+    const { unmount } = renderWithProviders(<TasksPage />);
     await user.type(screen.getByLabelText('新任務'), '寫功課');
     await user.click(screen.getByRole('button', { name: '加' }));
     unmount();
 
-    render(<TasksPage />);
+    renderWithProviders(<TasksPage />);
     expect(screen.getByText('寫功課')).toBeInTheDocument();
   });
 });

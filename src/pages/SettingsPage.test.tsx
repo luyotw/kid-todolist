@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
+import { renderWithProviders } from '../lib/testUtils';
 import SettingsPage from './SettingsPage';
 
 describe('SettingsPage', () => {
   it('shows the default reward text initially and persists edits', () => {
-    const { unmount } = render(<SettingsPage />);
+    const { unmount } = renderWithProviders(<SettingsPage />);
     const field = screen.getByLabelText('獎勵文字') as HTMLTextAreaElement;
     expect(field.value).toBe('你今天好棒！');
 
@@ -12,7 +13,7 @@ describe('SettingsPage', () => {
     expect(field.value).toBe('可以吃一根冰棒');
 
     unmount();
-    render(<SettingsPage />);
+    renderWithProviders(<SettingsPage />);
     const reopened = screen.getByLabelText('獎勵文字') as HTMLTextAreaElement;
     expect(reopened.value).toBe('可以吃一根冰棒');
   });
