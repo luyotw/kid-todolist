@@ -16,7 +16,7 @@ const userRoot = (uid: string) => `users/${uid}`;
 export const paths = {
   tasks: (uid: string) => `${userRoot(uid)}/tasks`,
   adhoc: (uid: string) => `${userRoot(uid)}/adhoc`,
-  completions: (uid: string) => `${userRoot(uid)}/completions`,
+  completionsMain: (uid: string) => `${userRoot(uid)}/completions/main`,
   settings: (uid: string) => `${userRoot(uid)}/meta/settings`,
 };
 
@@ -24,20 +24,30 @@ export const paths = {
 export function subscribeCollection<T>(
   collectionPath: string,
   onData: (items: T[]) => void,
+  onError?: (error: Error) => void,
 ): () => void {
-  return onSnapshot(collection(db, collectionPath), (snap) => {
-    onData(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as T));
-  });
+  return onSnapshot(
+    collection(db, collectionPath),
+    (snap) => {
+      onData(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as T));
+    },
+    (err) => onError?.(err),
+  );
 }
 
 /** Subscribe to a single user-scoped document. */
 export function subscribeDoc<T>(
   docPath: string,
   onData: (data: T | null) => void,
+  onError?: (error: Error) => void,
 ): () => void {
-  return onSnapshot(doc(db, docPath), (snap) => {
-    onData(snap.exists() ? (snap.data() as T) : null);
-  });
+  return onSnapshot(
+    doc(db, docPath),
+    (snap) => {
+      onData(snap.exists() ? (snap.data() as T) : null);
+    },
+    (err) => onError?.(err),
+  );
 }
 
 export function writeDoc<T extends DocumentData>(
