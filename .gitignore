@@ -29,6 +29,7 @@ dist-ssr
 *.sw?
 
 .cafe/*
+.cursor-agent/
 
 *.tsbuildinfo
 .vite/
