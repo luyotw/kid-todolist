@@ -31,5 +31,10 @@ dist-ssr
 .cafe/*
 .cursor-agent/
 
+.firebase/
+emulator-data/*
+!emulator-data/.gitkeep
+firestore-debug.log
+
 *.tsbuildinfo
 .vite/
