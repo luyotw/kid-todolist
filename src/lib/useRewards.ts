@@ -1,0 +1,1 @@
+export { useRewards } from './parentData';

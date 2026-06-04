@@ -24,3 +24,27 @@ export interface AdhocTask {
 export const ALL_WEEKDAYS: Weekday[] = [0, 1, 2, 3, 4, 5, 6];
 export const SCHOOL_DAYS: Weekday[] = [1, 2, 3, 4, 5];
 export const WEEKEND: Weekday[] = [0, 6];
+
+/** Parent-defined reward the kid can earn with points. */
+export interface RewardItem {
+  id: string;
+  title: string;
+  cost: number;
+  createdAt: number;
+}
+
+/** Parent-defined reward the kid can earn with points. */
+export interface RewardItem {
+  id: string;
+  title: string;
+  cost: number;
+  createdAt: number;
+}
+
+/** Parent-defined reward the kid can earn with points. */
+export interface RewardItem {
+  id: string;
+  title: string;
+  cost: number;
+  createdAt: number;
+}

@@ -1,8 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
+  DEFAULT_COMPLETION_MESSAGE,
   DEFAULT_POINTS_BALANCE,
-  DEFAULT_REWARD,
-  DEFAULT_REWARD_COST,
   LEGACY_REWARD_KEY,
   SETTINGS_KEY,
   loadLocalSettings,
@@ -11,31 +10,48 @@ import {
 import { storage } from './storage';
 
 describe('normalizeSettings', () => {
-  it('defaults missing rewardCost and pointsBalance', () => {
-    expect(normalizeSettings({ rewardText: '棒' })).toEqual({
-      rewardText: '棒',
-      rewardCost: DEFAULT_REWARD_COST,
+  it('defaults completion message and empty rewards', () => {
+    expect(normalizeSettings(null)).toEqual({
+      completionMessage: DEFAULT_COMPLETION_MESSAGE,
+      rewards: [],
       pointsBalance: DEFAULT_POINTS_BALANCE,
     });
   });
 
-  it('preserves explicit values', () => {
+  it('preserves explicit rewards and balance', () => {
     expect(
       normalizeSettings({
-        rewardText: '冰棒',
-        rewardCost: 5,
+        completionMessage: '太棒了',
+        rewards: [
+          { id: 'r1', title: '冰棒', cost: 3, createdAt: 1 },
+        ],
         pointsBalance: 10,
       }),
     ).toEqual({
-      rewardText: '冰棒',
-      rewardCost: 5,
+      completionMessage: '太棒了',
+      rewards: [
+        { id: 'r1', title: '冰棒', cost: 3, createdAt: 1 },
+      ],
       pointsBalance: 10,
     });
   });
 
-  it('falls back to default reward text when empty', () => {
-    expect(normalizeSettings({ rewardText: '   ' }).rewardText).toBe(
-      DEFAULT_REWARD,
+  it('migrates legacy rewardText and rewardCost', () => {
+    const settings = normalizeSettings({
+      rewardText: '你今天好棒！',
+      rewardCost: 5,
+      pointsBalance: 2,
+    });
+    expect(settings.completionMessage).toBe('你今天好棒！');
+    expect(settings.rewards).toHaveLength(1);
+    expect(settings.rewards[0].title).toBe('獎勵');
+    expect(settings.rewards[0].cost).toBe(5);
+    expect(settings.pointsBalance).toBe(2);
+  });
+
+  it('preserves empty completion message', () => {
+    expect(normalizeSettings({ completionMessage: '' }).completionMessage).toBe(
+      '',
     );
   });
 });
@@ -49,13 +65,13 @@ describe('loadLocalSettings', () => {
   it('migrates legacy reward string to settings object', () => {
     storage.set(LEGACY_REWARD_KEY, '可以吃冰棒');
     expect(loadLocalSettings()).toEqual({
-      rewardText: '可以吃冰棒',
-      rewardCost: DEFAULT_REWARD_COST,
+      completionMessage: '可以吃冰棒',
+      rewards: [],
       pointsBalance: DEFAULT_POINTS_BALANCE,
     });
     expect(storage.get(SETTINGS_KEY, null)).toEqual({
-      rewardText: '可以吃冰棒',
-      rewardCost: DEFAULT_REWARD_COST,
+      completionMessage: '可以吃冰棒',
+      rewards: [],
       pointsBalance: DEFAULT_POINTS_BALANCE,
     });
   });
