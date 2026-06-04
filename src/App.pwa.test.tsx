@@ -19,6 +19,8 @@ vi.mock('./lib/auth', () => ({
     user: null,
     loading: false,
     configured: true,
+    isGuest: false,
+    continueAsGuest: vi.fn(),
     signInWithGoogle: vi.fn(),
     signOutUser: vi.fn(),
   }),
@@ -34,7 +36,8 @@ describe('App PWA offline login', () => {
 
   it('shows connection hint instead of Google sign-in when offline and logged out', async () => {
     render(<App />);
-    expect(await screen.findByRole('status')).toHaveTextContent(/連上網路/);
+    expect(await screen.findByRole('status')).toHaveTextContent(/Google 登入/);
     expect(screen.queryByRole('button', { name: /Google/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '訪客' })).toBeInTheDocument();
   });
 });

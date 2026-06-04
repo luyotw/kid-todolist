@@ -27,12 +27,12 @@ export default function App() {
 }
 
 function AuthGate() {
-  const { user, loading, configured } = useAuth();
+  const { user, loading, configured, isGuest } = useAuth();
 
   if (configured && loading) {
     return <div className="app-loading">載入中…</div>;
   }
-  if (configured && !user) {
+  if (configured && !user && !isGuest) {
     return <LoginScreen />;
   }
   return (
@@ -53,14 +53,15 @@ function DataReadyGate() {
 }
 
 function AppShell() {
-  const { user, signOutUser, configured } = useAuth();
+  const { user, isGuest, signOutUser, configured } = useAuth();
   const sync = useDataSync();
   const { balance } = usePoints();
   const [tab, setTab] = useState<Tab>('today');
   const [confirmSignOut, setConfirmSignOut] = useState(false);
 
-  const displayName =
-    user?.displayName || user?.email?.split('@')[0] || '家長';
+  const displayName = isGuest
+    ? '訪客'
+    : user?.displayName || user?.email?.split('@')[0] || '家長';
 
   const handleSignOut = () => {
     setConfirmSignOut(false);
@@ -81,9 +82,9 @@ function AppShell() {
           <span className="app-header__points" data-testid="points-balance">
             點數 {balance}
           </span>
-          {configured && user && (
+          {configured && (user || isGuest) && (
             <div className="app-header__identity" data-testid="user-identity">
-              {user.photoURL && (
+              {user?.photoURL && (
                 <img
                   src={user.photoURL}
                   alt={displayName}
@@ -94,7 +95,7 @@ function AppShell() {
             </div>
           )}
         </div>
-        {configured && (
+        {configured && (user || isGuest) && (
           <button
             type="button"
             className="app-header__signout"

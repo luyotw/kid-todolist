@@ -29,6 +29,8 @@ vi.mock('./lib/auth', () => ({
     user: mockUser,
     loading: false,
     configured: true,
+    isGuest: false,
+    continueAsGuest: vi.fn(),
     signInWithGoogle: vi.fn(),
     signOutUser: () => {
       signOutUser();
@@ -91,6 +93,8 @@ describe('App sign-out confirmation', () => {
     expect(
       screen.getByRole('button', { name: '使用 Google 登入' }),
     ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '訪客' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '訪客' })).toBeInTheDocument();
     expect(
       screen.queryByRole('navigation', { name: '主要導覽' }),
     ).not.toBeInTheDocument();

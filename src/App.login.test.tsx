@@ -15,6 +15,8 @@ vi.mock('./lib/auth', () => ({
     user: null,
     loading: false,
     configured: true,
+    isGuest: false,
+    continueAsGuest: vi.fn(),
     signInWithGoogle: vi.fn(),
     signOutUser: vi.fn(),
   }),
@@ -26,6 +28,7 @@ describe('App login gate', () => {
     expect(
       screen.getByRole('button', { name: '使用 Google 登入' }),
     ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '訪客' })).toBeInTheDocument();
     expect(
       screen.queryByRole('navigation', { name: '主要導覽' }),
     ).not.toBeInTheDocument();
