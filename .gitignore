@@ -32,8 +32,8 @@ dist-ssr
 .cursor-agent/
 
 .firebase/
-emulator-data/*
-!emulator-data/.gitkeep
+/emulator-data/*
+!/emulator-data/.gitkeep
 firestore-debug.log
 
 *.tsbuildinfo
