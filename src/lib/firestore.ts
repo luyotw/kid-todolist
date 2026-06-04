@@ -7,10 +7,9 @@ import {
   type DocumentData,
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { familyPaths } from './family/paths';
 
-// All per-parent data lives under `users/{uid}` so Firestore security rules
-// can isolate one parent's data from another's. This module is the single
-// place that knows the on-disk shape; feature hooks build on top of it.
+// 使用者路徑（過渡期 #38 前仍由 app 使用）與家庭路徑（v2 隔離單位）集中於此模組。
 const userRoot = (uid: string) => `users/${uid}`;
 
 export const paths = {
@@ -18,6 +17,7 @@ export const paths = {
   adhoc: (uid: string) => `${userRoot(uid)}/adhoc`,
   completions: (uid: string) => `${userRoot(uid)}/completions`,
   settings: (uid: string) => `${userRoot(uid)}/meta/settings`,
+  family: familyPaths,
 };
 
 /** Subscribe to every document in a user-scoped collection. */
