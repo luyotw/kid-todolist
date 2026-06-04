@@ -16,14 +16,14 @@ const FIRESTORE_EMULATOR_HOST =
   process.env.FIRESTORE_EMULATOR_HOST ?? '127.0.0.1:8080';
 const [firestoreHost, firestorePort] = FIRESTORE_EMULATOR_HOST.split(':');
 
-let testEnv: RulesTestEnvironment | undefined;
+let testEnv!: RulesTestEnvironment;
 
 async function seedFamilyMember(
   familyId: string,
   uid: string,
   role: 'owner' | 'parent' = 'owner',
 ) {
-  await testEnv!.withSecurityRulesDisabled(async (context) => {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore();
     await setDoc(doc(db, `families/${familyId}/members/${uid}`), {
       role,
@@ -44,11 +44,11 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await testEnv?.cleanup();
+  await testEnv.cleanup();
 });
 
 beforeEach(async () => {
-  await testEnv!.clearFirestore();
+  await testEnv.clearFirestore();
 });
 
 describe('Firestore security rules — family access', () => {
