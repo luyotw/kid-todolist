@@ -20,6 +20,8 @@ vi.mock('./lib/auth', () => ({
     user: { uid: 'u1', displayName: '家長' },
     loading: false,
     configured: true,
+    isGuest: false,
+    continueAsGuest: vi.fn(),
     signInWithGoogle: vi.fn(),
     signOutUser: vi.fn(),
   }),
