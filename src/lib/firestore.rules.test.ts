@@ -148,3 +148,83 @@ describe('Firestore security rules — family access', () => {
     await assertFails(getDoc(doc(db, 'users/alice/tasks/t1')));
   });
 });
+
+describe('Firestore security rules — invite tokens', () => {
+  it('allows family members to create inviteTokens and authenticated users to read', async () => {
+    const familyId = 'fam-1';
+    const uid = 'alice';
+    await seedFamilyMember(familyId, uid);
+
+    const alice = testEnv.authenticatedContext(uid);
+    const db = alice.firestore();
+
+    await assertSucceeds(
+      setDoc(doc(db, 'inviteTokens/token-abc'), {
+        familyId,
+        createdAt: 1,
+        createdByUid: uid,
+        expiresAt: 999_999,
+        maxUses: 5,
+        usedCount: 0,
+      }),
+    );
+
+    const bob = testEnv.authenticatedContext('bob');
+    await assertSucceeds(getDoc(doc(bob.firestore(), 'inviteTokens/token-abc')));
+  });
+
+  it('denies non-members from creating inviteTokens', async () => {
+    const familyId = 'fam-1';
+    await seedFamilyMember(familyId, 'alice');
+
+    const bob = testEnv.authenticatedContext('bob');
+    await assertFails(
+      setDoc(doc(bob.firestore(), 'inviteTokens/token-xyz'), {
+        familyId,
+        createdAt: 1,
+        createdByUid: 'bob',
+        expiresAt: 999_999,
+        maxUses: 5,
+        usedCount: 0,
+      }),
+    );
+  });
+
+  it('allows users without membership to create a family profile and owner member', async () => {
+    const alice = testEnv.authenticatedContext('alice');
+    const db = alice.firestore();
+
+    await assertSucceeds(
+      setDoc(doc(db, 'families/fam-new/meta/profile'), {
+        createdAt: 1,
+        createdByUid: 'alice',
+        defaultChildId: '_default',
+      }),
+    );
+    await assertSucceeds(
+      setDoc(doc(db, 'families/fam-new/members/alice'), {
+        role: 'owner',
+        joinedAt: 1,
+      }),
+    );
+  });
+
+  it('denies unauthenticated read on inviteTokens', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await setDoc(doc(db, 'inviteTokens/token-abc'), {
+        familyId: 'fam-1',
+        createdAt: 1,
+        createdByUid: 'alice',
+        expiresAt: 999_999,
+        maxUses: 5,
+        usedCount: 0,
+      });
+    });
+
+    const unauthed = testEnv.unauthenticatedContext();
+    await assertFails(
+      getDoc(doc(unauthed.firestore(), 'inviteTokens/token-abc')),
+    );
+  });
+});

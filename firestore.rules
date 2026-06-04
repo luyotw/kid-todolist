@@ -7,6 +7,35 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/families/$(familyId)/members/$(request.auth.uid));
     }
 
+    function userHasMembership() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid)/meta/membership);
+    }
+
+    match /inviteTokens/{token} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && isFamilyMember(request.resource.data.familyId);
+      allow update: if request.auth != null
+        && resource.data.usedCount < resource.data.maxUses
+        && request.resource.data.usedCount == resource.data.usedCount + 1
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['usedCount']);
+    }
+
+    match /families/{familyId}/meta/profile {
+      allow read: if isFamilyMember(familyId);
+      allow create: if request.auth != null && !userHasMembership();
+    }
+
+    match /families/{familyId}/members/{uid} {
+      allow read: if isFamilyMember(familyId);
+      allow create: if request.auth.uid == uid
+        && !userHasMembership()
+        && request.resource.data.keys().hasAll(['role', 'joinedAt'])
+        && (request.resource.data.role == 'owner' || request.resource.data.role == 'parent');
+      allow update, delete: if isFamilyMember(familyId);
+    }
+
     match /families/{familyId}/{document=**} {
       allow read, write: if isFamilyMember(familyId);
     }
