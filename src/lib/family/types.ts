@@ -17,6 +17,16 @@ export interface FamilyInvite {
   createdByUid: string;
 }
 
+/** 頂層 inviteTokens/{token} 文件。 */
+export interface InviteTokenDoc {
+  familyId: string;
+  createdAt: number;
+  createdByUid: string;
+  expiresAt: number;
+  maxUses: number;
+  usedCount: number;
+}
+
 export interface UserMembership {
   familyId: string;
   activeChildId: string;

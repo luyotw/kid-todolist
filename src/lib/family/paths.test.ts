@@ -42,4 +42,8 @@ describe('familyPaths', () => {
   it('builds membership index path under users/{uid}/meta/membership', () => {
     expect(familyPaths.membership(uid)).toBe('users/parent-xyz/meta/membership');
   });
+
+  it('builds top-level invite token lookup path', () => {
+    expect(familyPaths.inviteToken('tok-abc')).toBe('inviteTokens/tok-abc');
+  });
 });

@@ -430,6 +430,61 @@ body {
   gap: 16px;
 }
 
+.settings-family {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+}
+
+.settings-family__heading {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.settings-family__hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.settings-family__url {
+  margin: 0;
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.settings-family__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.family-invite-banner {
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.family-invite-banner__url {
+  margin: 0;
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.family-invite-banner__actions {
+  display: flex;
+  gap: 8px;
+}
+
 .settings-field {
   display: flex;
   flex-direction: column;

@@ -9,7 +9,7 @@
     "emulators": "firebase emulators:start --only auth,firestore --import=./emulator-data --export-on-exit=./emulator-data",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "test": "vitest run --exclude src/lib/firestore.rules.test.ts && firebase emulators:exec --only firestore --project kid-todolist-test \"vitest run src/lib/firestore.rules.test.ts\"",
+    "test": "vitest run --exclude src/lib/firestore.rules.test.ts --exclude src/lib/family/familyInvite.integration.test.ts && firebase emulators:exec --only firestore --project kid-todolist-test \"vitest run src/lib/firestore.rules.test.ts src/lib/family/familyInvite.integration.test.ts\"",
     "test:watch": "vitest"
   },
   "dependencies": {

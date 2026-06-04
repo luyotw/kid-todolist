@@ -24,4 +24,5 @@ export const familyPaths = {
   settings: (familyId: string, childId?: string) =>
     `${childRoot(familyId, childId)}/meta/settings`,
   membership: (uid: string) => `users/${uid}/meta/membership`,
+  inviteToken: (token: string) => `inviteTokens/${token}`,
 };
