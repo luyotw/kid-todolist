@@ -49,3 +49,25 @@ firebase deploy --only firestore:rules
 ```bash
 npm test
 ```
+
+## 家庭資料模型（v2）
+
+雲端資料以**家庭**為隔離單位，路徑上預留多小孩維度。MVP 僅使用固定小孩 id `_default`；每位登入者有快速索引 `users/{uid}/meta/membership`（`familyId`、`activeChildId`）。
+
+```
+families/{familyId}/
+  meta/profile
+  members/{uid}           # role: owner | parent
+  invites/{token}         # 供後續邀請流程（#37）
+  children/{childId}/     # MVP: childId = _default
+    tasks/
+    completions/
+    adhoc/
+    meta/settings
+
+users/{uid}/meta/membership
+```
+
+路徑 helper 見 `src/lib/firestore.ts` 的 `paths.family.*`；`childId` 未指定或為空時正規化為 `_default`。
+
+**未來多小孩擴充：** 新增 `children/{newChildId}` 子樹，並在 membership 更新 `activeChildId`；不需變更路徑 helper 簽名。
