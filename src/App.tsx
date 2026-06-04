@@ -1,10 +1,21 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AuthProvider, useAuth } from './lib/auth';
 import {
   ParentDataProvider,
   useDataSync,
   usePoints,
 } from './lib/parentData';
+import {
+  acceptInvite,
+  captureJoinTokenFromLocation,
+  clearLocationJoinParam,
+  clearPendingJoinToken,
+  FamilyMembershipProvider,
+  INVITE_USER_MESSAGES,
+  readPendingJoinToken,
+  useFamilyMembership,
+} from './lib/family';
+import { useOnlineStatus } from './lib/cloudSync';
 import LoginScreen from './pages/LoginScreen';
 import SettingsPage from './pages/SettingsPage';
 import TasksPage from './pages/TasksPage';
@@ -37,7 +48,9 @@ function AuthGate() {
   }
   return (
     <ParentDataProvider>
-      <DataReadyGate />
+      <FamilyMembershipProvider uid={user && !isGuest ? user.uid : null}>
+        <DataReadyGate />
+      </FamilyMembershipProvider>
     </ParentDataProvider>
   );
 }
@@ -50,6 +63,44 @@ function DataReadyGate() {
     return <div className="app-loading">載入資料中…</div>;
   }
   return <AppShell />;
+}
+
+function JoinFlowHandler() {
+  const { user, isGuest, configured } = useAuth();
+  const online = useOnlineStatus();
+  const { refresh } = useFamilyMembership();
+  const [message, setMessage] = useState<string | null>(null);
+  const processedRef = useRef(false);
+
+  useEffect(() => {
+    captureJoinTokenFromLocation();
+  }, []);
+
+  useEffect(() => {
+    if (!configured || !user || isGuest || processedRef.current) return;
+    const token = readPendingJoinToken();
+    if (!token) return;
+
+    processedRef.current = true;
+    void (async () => {
+      const result = await acceptInvite(user.uid, token, { online });
+      clearPendingJoinToken();
+      clearLocationJoinParam();
+      if (result.ok) {
+        refresh();
+        setMessage(INVITE_USER_MESSAGES[result.code]);
+      } else {
+        setMessage(INVITE_USER_MESSAGES[result.code]);
+      }
+    })();
+  }, [configured, user, isGuest, online, refresh]);
+
+  if (!message) return null;
+  return (
+    <div className="app-status" role="status" data-testid="join-flow-status">
+      {message}
+    </div>
+  );
 }
 
 function AppShell() {
@@ -107,6 +158,7 @@ function AppShell() {
       </header>
 
       <StatusBanners sync={sync} />
+      <JoinFlowHandler />
 
       {confirmSignOut && (
         <div className="confirm-dialog" role="dialog" aria-modal="true">
