@@ -24,6 +24,8 @@ vi.mock('./auth', () => ({
     user: { uid: 'test-uid', displayName: 'Test Parent' },
     loading: false,
     configured: true,
+    isGuest: false,
+    continueAsGuest: vi.fn(),
     signInWithGoogle: vi.fn(),
     signOutUser: vi.fn(),
   }),
@@ -75,7 +77,7 @@ describe('useReward cloud mode', () => {
     mockCloudSubscriptions();
   });
 
-  it('returns default reward when cloud settings doc is missing', async () => {
+  it('returns default completion message when cloud settings doc is missing', async () => {
     const { result } = renderHook(() => useReward(), { wrapper });
     await waitFor(() => expect(result.current.sync.ready).toBe(true));
     expect(result.current.text).toBe('你今天好棒！');
@@ -152,8 +154,15 @@ describe('usePoints cloud mode — scheduled toggle credits balance', () => {
   beforeEach(() => {
     vi.spyOn(firestore, 'subscribeDoc').mockImplementation((_path, onData) => {
       onData({
-        rewardText: '棒',
-        rewardCost: 3,
+        completionMessage: '棒',
+        rewards: [
+          {
+            id: 'reward-a',
+            title: '冰棒',
+            cost: 3,
+            createdAt: 0,
+          },
+        ],
         pointsBalance: 0,
       });
       return vi.fn();
@@ -204,8 +213,15 @@ describe('usePoints cloud mode — uncheck debits with floor', () => {
   beforeEach(() => {
     vi.spyOn(firestore, 'subscribeDoc').mockImplementation((_path, onData) => {
       onData({
-        rewardText: '棒',
-        rewardCost: 1,
+        completionMessage: '棒',
+        rewards: [
+          {
+            id: 'reward-a',
+            title: '冰棒',
+            cost: 3,
+            createdAt: 0,
+          },
+        ],
         pointsBalance: 1,
       });
       return vi.fn();
@@ -254,7 +270,11 @@ describe('usePoints cloud mode — uncheck debits with floor', () => {
 describe('usePoints cloud mode — adhoc toggle no points', () => {
   beforeEach(() => {
     vi.spyOn(firestore, 'subscribeDoc').mockImplementation((_path, onData) => {
-      onData({ rewardText: '棒', rewardCost: 1, pointsBalance: 2 });
+      onData({
+        completionMessage: '棒',
+        rewards: [{ id: 'r1', title: '貼紙', cost: 1, createdAt: 0 }],
+        pointsBalance: 2,
+      });
       return vi.fn();
     });
     vi.spyOn(firestore, 'writeDoc').mockResolvedValue(undefined);

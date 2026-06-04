@@ -17,6 +17,8 @@ vi.mock('./auth', () => ({
     user: null,
     loading: false,
     configured: false,
+    isGuest: false,
+    continueAsGuest: vi.fn(),
     signInWithGoogle: vi.fn(),
     signOutUser: vi.fn(),
   }),

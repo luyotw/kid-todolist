@@ -4,17 +4,21 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
 import type { AdhocTask, Task } from '../types';
 import { useAuth } from './auth';
 import {
+  isLocalSnapshotEmpty,
   mergeSyncMeta,
+  pushLocalSnapshotToCloud,
   readySync,
   runCloudWrite,
   useOnlineStatus,
   type CloudSyncMeta,
+  type LocalParentSnapshot,
 } from './cloudSync';
 import {
   paths,
@@ -24,6 +28,7 @@ import {
   writeDoc,
   writeSingleton,
 } from './firestore';
+import { firestoreReadError } from './firestoreErrors';
 import { getAdhocFor } from './adhoc';
 import {
   createAdhoc as createAdhocPure,
@@ -36,8 +41,15 @@ import {
 } from './tasks';
 import { storage } from './storage';
 import {
-  DEFAULT_REWARD,
+  createReward as createRewardPure,
+  deleteReward as deleteRewardPure,
+  findReward,
+  updateReward as updateRewardPure,
+} from './rewards';
+import {
+  DEFAULT_COMPLETION_MESSAGE,
   type ParentSettings,
+  type RewardItem,
   loadLocalSettings,
   normalizeSettings,
   saveLocalSettings,
@@ -50,7 +62,7 @@ import {
   type RedemptionResult,
 } from './points';
 
-export { DEFAULT_REWARD };
+export { DEFAULT_COMPLETION_MESSAGE, DEFAULT_COMPLETION_MESSAGE as DEFAULT_REWARD };
 
 const TASKS_KEY = 'kid-todolist:tasks:v1';
 const COMPLETIONS_KEY = 'kid-todolist:completions:v1';
@@ -64,23 +76,28 @@ interface CompletionDay {
 }
 
 interface SettingsDoc {
+  completionMessage?: string;
+  rewards?: RewardItem[];
+  pointsBalance?: number;
   rewardText?: string;
   rewardCost?: number;
-  pointsBalance?: number;
 }
 
 function settingsFromDoc(data: SettingsDoc | null): ParentSettings {
+  if (!data) return normalizeSettings(null);
   return normalizeSettings({
-    rewardText: data?.rewardText,
-    rewardCost: data?.rewardCost,
-    pointsBalance: data?.pointsBalance,
+    completionMessage: data.completionMessage,
+    rewards: data.rewards,
+    pointsBalance: data.pointsBalance,
+    rewardText: data.rewardText,
+    rewardCost: data.rewardCost,
   });
 }
 
 function settingsToDoc(settings: ParentSettings): SettingsDoc {
   return {
-    rewardText: settings.rewardText,
-    rewardCost: settings.rewardCost,
+    completionMessage: settings.completionMessage,
+    rewards: settings.rewards,
     pointsBalance: settings.pointsBalance,
   };
 }
@@ -91,6 +108,15 @@ function taskToFirestore(task: Task) {
     weekdays: task.weekdays,
     createdAt: task.createdAt,
     ...(task.points !== undefined ? { points: task.points } : {}),
+  };
+}
+
+function readLocalSnapshot(): LocalParentSnapshot {
+  return {
+    tasks: storage.get<Task[]>(TASKS_KEY, []),
+    completions: storage.get<StoredCompletions>(COMPLETIONS_KEY, {}),
+    adhoc: storage.get<AdhocTask[]>(ADHOC_KEY, []),
+    settings: loadLocalSettings(),
   };
 }
 
@@ -114,14 +140,19 @@ interface ParentDataContextValue {
   adhocSync: CloudSyncMeta;
   addAdhoc: (title: string, dateStr: string) => void;
   removeAdhoc: (id: string) => void;
-  rewardText: string;
-  rewardCost: number;
+  completionMessage: string;
+  rewards: RewardItem[];
   pointsBalance: number;
   rewardSync: CloudSyncMeta;
-  setRewardText: (text: string) => void;
-  setRewardCost: (cost: number) => void;
-  redeemReward: () => RedemptionResult;
-  defaultReward: string;
+  setCompletionMessage: (text: string) => void;
+  addReward: (title: string, cost: number) => void;
+  updateReward: (
+    id: string,
+    patch: Partial<Pick<RewardItem, 'title' | 'cost'>>,
+  ) => void;
+  removeReward: (id: string) => void;
+  redeemReward: (id: string) => RedemptionResult;
+  defaultCompletionMessage: string;
   sync: CloudSyncMeta;
 }
 
@@ -178,137 +209,150 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
   const localAdhoc = useLocalAdhoc();
   const localSettings = useLocalSettingsState();
 
-  const [cloudTasks, setCloudTasks] = useState<Task[]>([]);
-  const [tasksLoading, setTasksLoading] = useState(cloudMode);
+  const [cloudSyncReady, setCloudSyncReady] = useState(false);
   const [tasksError, setTasksError] = useState<string | null>(null);
-
-  const [cloudCompletions, setCloudCompletions] = useState<StoredCompletions>({});
-  const [completionsLoading, setCompletionsLoading] = useState(cloudMode);
   const [completionsError, setCompletionsError] = useState<string | null>(null);
-
-  const [cloudAdhoc, setCloudAdhoc] = useState<AdhocTask[]>([]);
-  const [adhocLoading, setAdhocLoading] = useState(cloudMode);
   const [adhocError, setAdhocError] = useState<string | null>(null);
-
-  const [cloudSettings, setCloudSettings] = useState<ParentSettings>(() =>
-    normalizeSettings(null),
-  );
-  const [settingsLoading, setSettingsLoading] = useState(cloudMode);
   const [settingsError, setSettingsError] = useState<string | null>(null);
+  const initialSyncDoneRef = useRef(false);
 
   useEffect(() => {
-    if (!cloudMode) return;
-    setTasksLoading(true);
-    return subscribeCollection<Task>(
+    if (!cloudMode) {
+      setCloudSyncReady(true);
+      initialSyncDoneRef.current = false;
+      return;
+    }
+
+    setCloudSyncReady(false);
+    initialSyncDoneRef.current = false;
+
+    const cloudSnap = {
+      tasks: [] as Task[],
+      completions: {} as StoredCompletions,
+      adhoc: [] as AdhocTask[],
+      settings: normalizeSettings(null),
+    };
+    const loaded = {
+      tasks: false,
+      completions: false,
+      adhoc: false,
+      settings: false,
+    };
+
+    const finishInitialSync = () => {
+      if (initialSyncDoneRef.current) return;
+      if (!loaded.tasks || !loaded.completions || !loaded.adhoc || !loaded.settings) {
+        return;
+      }
+      initialSyncDoneRef.current = true;
+
+      const localSnap = readLocalSnapshot();
+      if (isLocalSnapshotEmpty(localSnap)) {
+        localTasks.setTasks(cloudSnap.tasks);
+        localCompletions.setAll(cloudSnap.completions);
+        localAdhoc.setAll(cloudSnap.adhoc);
+        localSettings.setSettings(cloudSnap.settings);
+      } else {
+        void runCloudWrite(
+          () => pushLocalSnapshotToCloud(uid, localSnap),
+          (msg) => {
+            setTasksError(msg);
+            setCompletionsError(msg);
+            setAdhocError(msg);
+            setSettingsError(msg);
+          },
+        );
+      }
+      setCloudSyncReady(true);
+    };
+
+    const unsubTasks = subscribeCollection<Task>(
       paths.tasks(uid),
       (items) => {
-        setCloudTasks(items);
-        setTasksLoading(false);
-        setTasksError(null);
+        cloudSnap.tasks = items;
+        loaded.tasks = true;
+        finishInitialSync();
       },
-      () => {
-        setTasksError('讀取任務失敗。');
-        setTasksLoading(false);
+      (err) => {
+        setTasksError(firestoreReadError('任務', err));
+        loaded.tasks = true;
+        finishInitialSync();
       },
     );
-  }, [cloudMode, uid]);
 
-  useEffect(() => {
-    if (!cloudMode) return;
-    setCompletionsLoading(true);
-    return subscribeCollection<CompletionDay>(
+    const unsubCompletions = subscribeCollection<CompletionDay>(
       paths.completions(uid),
       (items) => {
         const next: StoredCompletions = {};
         for (const day of items) next[day.id] = day.ids ?? [];
-        setCloudCompletions(next);
-        setCompletionsLoading(false);
-        setCompletionsError(null);
+        cloudSnap.completions = next;
+        loaded.completions = true;
+        finishInitialSync();
       },
-      () => {
-        setCompletionsError('讀取完成紀錄失敗。');
-        setCompletionsLoading(false);
+      (err) => {
+        setCompletionsError(firestoreReadError('完成紀錄', err));
+        loaded.completions = true;
+        finishInitialSync();
       },
     );
-  }, [cloudMode, uid]);
 
-  useEffect(() => {
-    if (!cloudMode) return;
-    setAdhocLoading(true);
-    return subscribeCollection<AdhocTask>(
+    const unsubAdhoc = subscribeCollection<AdhocTask>(
       paths.adhoc(uid),
       (items) => {
-        setCloudAdhoc(items);
-        setAdhocLoading(false);
-        setAdhocError(null);
+        cloudSnap.adhoc = items;
+        loaded.adhoc = true;
+        finishInitialSync();
       },
-      () => {
-        setAdhocError('讀取臨時任務失敗。');
-        setAdhocLoading(false);
+      (err) => {
+        setAdhocError(firestoreReadError('臨時任務', err));
+        loaded.adhoc = true;
+        finishInitialSync();
       },
     );
-  }, [cloudMode, uid]);
 
-  useEffect(() => {
-    if (!cloudMode) return;
-    setSettingsLoading(true);
-    return subscribeDoc<SettingsDoc>(
+    const unsubSettings = subscribeDoc<SettingsDoc>(
       paths.settings(uid),
       (data) => {
-        setCloudSettings(settingsFromDoc(data));
-        setSettingsLoading(false);
-        setSettingsError(null);
+        cloudSnap.settings = settingsFromDoc(data);
+        loaded.settings = true;
+        finishInitialSync();
       },
-      () => {
-        setSettingsError('讀取獎勵設定失敗。');
-        setSettingsLoading(false);
+      (err) => {
+        setSettingsError(firestoreReadError('獎勵設定', err));
+        loaded.settings = true;
+        finishInitialSync();
       },
     );
+
+    return () => {
+      unsubTasks();
+      unsubCompletions();
+      unsubAdhoc();
+      unsubSettings();
+    };
   }, [cloudMode, uid]);
 
-  const tasks = cloudMode ? cloudTasks : localTasks.tasks;
-  const allCompletions = cloudMode ? cloudCompletions : localCompletions.all;
-  const allAdhoc = cloudMode ? cloudAdhoc : localAdhoc.all;
-  const settings = cloudMode ? cloudSettings : localSettings.settings;
-  const rewardText = settings.rewardText;
-  const rewardCost = settings.rewardCost;
+  const tasks = localTasks.tasks;
+  const allCompletions = localCompletions.all;
+  const allAdhoc = localAdhoc.all;
+  const settings = localSettings.settings;
+  const completionMessage = settings.completionMessage;
+  const rewards = settings.rewards;
   const pointsBalance = settings.pointsBalance;
 
-  const tasksSync: CloudSyncMeta = cloudMode
-    ? {
-        loading: tasksLoading,
-        error: tasksError,
-        offline: !online,
-        ready: !tasksLoading,
-      }
-    : readySync;
+  const cloudSyncMeta = (error: string | null): CloudSyncMeta => ({
+    loading: !cloudSyncReady,
+    error,
+    offline: !online,
+    ready: cloudSyncReady,
+  });
 
-  const completionsSync: CloudSyncMeta = cloudMode
-    ? {
-        loading: completionsLoading,
-        error: completionsError,
-        offline: !online,
-        ready: !completionsLoading,
-      }
+  const tasksSync = cloudMode ? cloudSyncMeta(tasksError) : readySync;
+  const completionsSync = cloudMode
+    ? cloudSyncMeta(completionsError)
     : readySync;
-
-  const adhocSync: CloudSyncMeta = cloudMode
-    ? {
-        loading: adhocLoading,
-        error: adhocError,
-        offline: !online,
-        ready: !adhocLoading,
-      }
-    : readySync;
-
-  const rewardSync: CloudSyncMeta = cloudMode
-    ? {
-        loading: settingsLoading,
-        error: settingsError,
-        offline: !online,
-        ready: !settingsLoading,
-      }
-    : readySync;
+  const adhocSync = cloudMode ? cloudSyncMeta(adhocError) : readySync;
+  const rewardSync = cloudMode ? cloudSyncMeta(settingsError) : readySync;
 
   const sync = mergeSyncMeta(
     tasksSync,
@@ -327,68 +371,58 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
 
   const persistSettings = useCallback(
     (next: ParentSettings) => {
+      localSettings.setSettings(next);
       if (cloudMode) {
-        setCloudSettings(next);
         void runCloudWrite(
           () => writeSingleton(paths.settings(uid), settingsToDoc(next)),
           setSettingsErrorMsg,
         );
-        return;
       }
-      localSettings.setSettings(next);
     },
     [cloudMode, uid, localSettings, setSettingsErrorMsg],
   );
 
   const createTask = useCallback(
     (title: string, weekdays?: Task['weekdays'], points?: number) => {
+      const next = createTaskPure(tasks, title, weekdays, points);
+      const created = next[next.length - 1];
+      if (!created || next.length === tasks.length) return;
+      localTasks.setTasks(next);
       if (cloudMode) {
-        const next = createTaskPure(tasks, title, weekdays, points);
-        const created = next[next.length - 1];
-        if (!created) return;
-        setCloudTasks(next);
         void runCloudWrite(
           () => writeDoc(paths.tasks(uid), created.id, taskToFirestore(created)),
           setTasksErrorMsg,
         );
-        return;
       }
-      localTasks.setTasks((prev) =>
-        createTaskPure(prev, title, weekdays, points),
-      );
     },
-    [cloudMode, tasks, uid, localTasks, setTasksErrorMsg],
+    [cloudMode, uid, tasks, localTasks, setTasksErrorMsg],
   );
 
   const updateTask = useCallback(
     (id: string, patch: Partial<Pick<Task, 'title' | 'weekdays' | 'points'>>) => {
+      const next = updateTaskPure(tasks, id, patch);
+      const updated = next.find((t) => t.id === id);
+      if (!updated) return;
+      localTasks.setTasks(next);
       if (cloudMode) {
-        const next = updateTaskPure(tasks, id, patch);
-        const updated = next.find((t) => t.id === id);
-        if (!updated) return;
-        setCloudTasks(next);
         void runCloudWrite(
           () => writeDoc(paths.tasks(uid), id, taskToFirestore(updated)),
           setTasksErrorMsg,
         );
-        return;
       }
-      localTasks.setTasks((prev) => updateTaskPure(prev, id, patch));
     },
-    [cloudMode, tasks, uid, localTasks, setTasksErrorMsg],
+    [cloudMode, uid, tasks, localTasks, setTasksErrorMsg],
   );
 
   const removeTask = useCallback(
     (id: string) => {
+      localTasks.setTasks((prev) => deleteTaskPure(prev, id));
       if (cloudMode) {
-        setCloudTasks((prev) => deleteTaskPure(prev, id));
         void runCloudWrite(
           () => removeDoc(paths.tasks(uid), id),
           setTasksErrorMsg,
         );
-        return;
       }
-      localTasks.setTasks((prev) => deleteTaskPure(prev, id));
     },
     [cloudMode, uid, localTasks, setTasksErrorMsg],
   );
@@ -425,14 +459,16 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
         };
       };
 
+      const nextCompletions = applyCompletions(allCompletions);
+      const ids = nextCompletions[dateStr] ?? [];
+      const nextSettings = applyPoints(settings);
+
+      localCompletions.setAll(nextCompletions);
+      if (nextSettings !== settings) {
+        localSettings.setSettings(nextSettings);
+      }
+
       if (cloudMode) {
-        const nextCompletions = applyCompletions(allCompletions);
-        const ids = nextCompletions[dateStr] ?? [];
-        const nextSettings = applyPoints(settings);
-        setCloudCompletions(nextCompletions);
-        if (nextSettings !== settings) {
-          setCloudSettings(nextSettings);
-        }
         void runCloudWrite(async () => {
           if (ids.length === 0) {
             await removeDoc(paths.completions(uid), dateStr);
@@ -443,12 +479,6 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
             await writeSingleton(paths.settings(uid), settingsToDoc(nextSettings));
           }
         }, setCompletionsErrorMsg);
-        return;
-      }
-
-      localCompletions.setAll(applyCompletions);
-      if (affectsPoints) {
-        localSettings.setSettings(applyPoints);
       }
     },
     [
@@ -470,11 +500,11 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
 
   const addAdhoc = useCallback(
     (title: string, dateStr: string) => {
+      const next = createAdhocPure(allAdhoc, title, dateStr);
+      const created = next[next.length - 1];
+      if (!created || next.length === allAdhoc.length) return;
+      localAdhoc.setAll(next);
       if (cloudMode) {
-        const next = createAdhocPure(allAdhoc, title, dateStr);
-        const created = next[next.length - 1];
-        if (!created) return;
-        setCloudAdhoc(next);
         void runCloudWrite(
           () =>
             writeDoc(paths.adhoc(uid), created.id, {
@@ -484,49 +514,75 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
             }),
           setAdhocErrorMsg,
         );
-        return;
       }
-      localAdhoc.setAll((prev) => createAdhocPure(prev, title, dateStr));
     },
-    [cloudMode, allAdhoc, uid, localAdhoc, setAdhocErrorMsg],
+    [cloudMode, uid, allAdhoc, localAdhoc, setAdhocErrorMsg],
   );
 
   const removeAdhocItem = useCallback(
     (id: string) => {
+      localAdhoc.setAll((prev) => deleteAdhocPure(prev, id));
       if (cloudMode) {
-        setCloudAdhoc((prev) => deleteAdhocPure(prev, id));
         void runCloudWrite(
           () => removeDoc(paths.adhoc(uid), id),
           setAdhocErrorMsg,
         );
-        return;
       }
-      localAdhoc.setAll((prev) => deleteAdhocPure(prev, id));
     },
     [cloudMode, uid, localAdhoc, setAdhocErrorMsg],
   );
 
-  const setRewardText = useCallback(
+  const setCompletionMessage = useCallback(
     (text: string) => {
-      persistSettings({ ...settings, rewardText: text });
+      persistSettings({ ...settings, completionMessage: text });
     },
     [settings, persistSettings],
   );
 
-  const setRewardCost = useCallback(
-    (cost: number) => {
-      persistSettings(normalizeSettings({ ...settings, rewardCost: cost }));
+  const addReward = useCallback(
+    (title: string, cost: number) => {
+      persistSettings({
+        ...settings,
+        rewards: createRewardPure(settings.rewards, title, cost),
+      });
     },
     [settings, persistSettings],
   );
 
-  const redeemReward = useCallback((): RedemptionResult => {
-    const result = applyRedemption(settings.pointsBalance, settings.rewardCost);
-    if (result.ok) {
-      persistSettings({ ...settings, pointsBalance: result.balance });
-    }
-    return result;
-  }, [settings, persistSettings]);
+  const updateRewardItem = useCallback(
+    (id: string, patch: Partial<Pick<RewardItem, 'title' | 'cost'>>) => {
+      persistSettings({
+        ...settings,
+        rewards: updateRewardPure(settings.rewards, id, patch),
+      });
+    },
+    [settings, persistSettings],
+  );
+
+  const removeReward = useCallback(
+    (id: string) => {
+      persistSettings({
+        ...settings,
+        rewards: deleteRewardPure(settings.rewards, id),
+      });
+    },
+    [settings, persistSettings],
+  );
+
+  const redeemReward = useCallback(
+    (id: string): RedemptionResult => {
+      const reward = findReward(settings.rewards, id);
+      if (!reward) {
+        return { ok: false, balance: settings.pointsBalance, shortfall: 0 };
+      }
+      const result = applyRedemption(settings.pointsBalance, reward.cost);
+      if (result.ok) {
+        persistSettings({ ...settings, pointsBalance: result.balance });
+      }
+      return result;
+    },
+    [settings, persistSettings],
+  );
 
   const value = useMemo<ParentDataContextValue>(
     () => ({
@@ -542,14 +598,16 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
       adhocSync,
       addAdhoc,
       removeAdhoc: removeAdhocItem,
-      rewardText,
-      rewardCost,
+      completionMessage,
+      rewards,
       pointsBalance,
       rewardSync,
-      setRewardText,
-      setRewardCost,
+      setCompletionMessage,
+      addReward,
+      updateReward: updateRewardItem,
+      removeReward,
       redeemReward,
-      defaultReward: DEFAULT_REWARD,
+      defaultCompletionMessage: DEFAULT_COMPLETION_MESSAGE,
       sync,
     }),
     [
@@ -565,12 +623,14 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
       adhocSync,
       addAdhoc,
       removeAdhocItem,
-      rewardText,
-      rewardCost,
+      completionMessage,
+      rewards,
       pointsBalance,
       rewardSync,
-      setRewardText,
-      setRewardCost,
+      setCompletionMessage,
+      addReward,
+      updateRewardItem,
+      removeReward,
       redeemReward,
       sync,
     ],
@@ -640,29 +700,45 @@ export function useAdhoc(dateStr: string) {
 }
 
 export function useReward() {
-  const { rewardText, rewardSync, setRewardText, defaultReward } =
-    useParentData();
+  const {
+    completionMessage,
+    rewardSync,
+    setCompletionMessage,
+    defaultCompletionMessage,
+  } = useParentData();
   return {
-    text: rewardText,
-    setText: setRewardText,
-    defaultText: defaultReward,
+    text: completionMessage,
+    setText: setCompletionMessage,
+    defaultText: defaultCompletionMessage,
+    sync: rewardSync,
+  };
+}
+
+export function useRewards() {
+  const {
+    rewards,
+    pointsBalance,
+    rewardSync,
+    addReward,
+    updateReward,
+    removeReward,
+    redeemReward,
+  } = useParentData();
+  return {
+    rewards,
+    balance: pointsBalance,
+    add: addReward,
+    update: updateReward,
+    remove: removeReward,
+    redeem: redeemReward,
     sync: rewardSync,
   };
 }
 
 export function usePoints() {
-  const {
-    pointsBalance,
-    rewardCost,
-    setRewardCost,
-    redeemReward,
-    rewardSync,
-  } = useParentData();
+  const { pointsBalance, rewardSync } = useParentData();
   return {
     balance: pointsBalance,
-    rewardCost,
-    setRewardCost,
-    redeem: redeemReward,
     sync: rewardSync,
   };
 }
