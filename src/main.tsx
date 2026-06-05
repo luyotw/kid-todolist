@@ -4,10 +4,18 @@ import App from './App';
 import { clearLegacyPwaCaches } from './lib/pwa/register';
 import './styles.css';
 
-void clearLegacyPwaCaches();
+async function bootstrap() {
+  const cleared = await clearLegacyPwaCaches();
+  if (cleared) {
+    location.reload();
+    return;
+  }
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-);
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  );
+}
+
+void bootstrap();

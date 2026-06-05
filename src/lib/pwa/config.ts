@@ -9,6 +9,6 @@ export const PWA_MANIFEST = {
   theme_color: PWA_THEME_COLOR,
   background_color: PWA_THEME_COLOR,
   display: 'standalone' as const,
-  start_url: '/',
+  start_url: '/index.html',
   lang: 'zh-Hant',
 };

@@ -26,12 +26,27 @@ describe('clearLegacyPwaCaches', () => {
       value: { keys, delete: deleteCache },
     });
 
-    await clearLegacyPwaCaches();
+    await expect(clearLegacyPwaCaches()).resolves.toBe(true);
 
     expect(getRegistrations).toHaveBeenCalledTimes(1);
     expect(unregister).toHaveBeenCalledTimes(1);
     expect(keys).toHaveBeenCalledTimes(1);
     expect(deleteCache).toHaveBeenCalledWith('workbox-precache-v2');
+  });
+
+  it('returns false when nothing to clear', async () => {
+    vi.stubEnv('PROD', true);
+
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      value: { serviceWorker: { getRegistrations: vi.fn().mockResolvedValue([]) } },
+    });
+    Object.defineProperty(globalThis, 'caches', {
+      configurable: true,
+      value: { keys: vi.fn().mockResolvedValue([]), delete: vi.fn() },
+    });
+
+    await expect(clearLegacyPwaCaches()).resolves.toBe(false);
   });
 
   it('skips cleanup in development', async () => {
@@ -42,7 +57,7 @@ describe('clearLegacyPwaCaches', () => {
       value: { serviceWorker: { getRegistrations } },
     });
 
-    await clearLegacyPwaCaches();
+    await expect(clearLegacyPwaCaches()).resolves.toBe(false);
     expect(getRegistrations).not.toHaveBeenCalled();
   });
 });
