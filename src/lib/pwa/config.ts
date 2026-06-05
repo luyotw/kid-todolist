@@ -8,7 +8,7 @@ export const PWA_MANIFEST = {
   short_name: PWA_APP_NAME,
   theme_color: PWA_THEME_COLOR,
   background_color: PWA_THEME_COLOR,
-  display: 'browser' as const,
-  start_url: '/index.html',
+  display: 'standalone' as const,
+  start_url: '/',
   lang: 'zh-Hant',
 };

@@ -10,7 +10,7 @@ vi.mock('./lib/firebase', () => ({
 }));
 
 vi.mock('./lib/pwa/register', () => ({
-  clearLegacyPwaCaches: vi.fn(),
+  registerSW: vi.fn(),
 }));
 
 vi.mock('./lib/auth', () => ({

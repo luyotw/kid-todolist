@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { APP_BUILD_ID } from '../lib/appVersion';
 import { useAuth } from '../lib/auth';
 import { db } from '../lib/firebase';
 import { useOnlineStatus } from '../lib/cloudSync';
@@ -129,6 +128,22 @@ export default function SettingsPage() {
         />
       )}
 
+      {configured && isGuest && (
+        <section
+          className="settings-guest-notice"
+          aria-labelledby="settings-guest-heading"
+          data-testid="settings-guest-notice"
+        >
+          <h2 id="settings-guest-heading" className="settings-guest-notice__heading">
+            雲端與家庭
+          </h2>
+          <p className="settings-guest-notice__hint">
+            你目前以訪客使用，資料只會存在這台手機。若要跨裝置同步，或邀請另一位家長加入同一家庭，請點右上角「登出」後改用
+            Google 登入。
+          </p>
+        </section>
+      )}
+
       {showFamilySection && (
         <FamilyMembersProvider familyId={membership?.familyId ?? null}>
           <FamilySection
@@ -219,12 +234,6 @@ export default function SettingsPage() {
           </button>
         </form>
       </section>
-
-      <p className="settings-version">
-        版本 {APP_BUILD_ID}
-        {' · '}
-        <a href="/reset.html">更新卡住？</a>
-      </p>
     </div>
   );
 }

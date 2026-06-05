@@ -4,21 +4,16 @@ import { describe, expect, it } from 'vitest';
 
 describe('index.html installability hooks', () => {
   const html = readFileSync(resolve(process.cwd(), 'index.html'), 'utf8');
-  const manifest = readFileSync(
-    resolve(process.cwd(), 'public/manifest.webmanifest'),
-    'utf8',
-  );
+  const viteConfig = readFileSync(resolve(process.cwd(), 'vite.config.ts'), 'utf8');
 
-  it('links a static manifest and install metadata', () => {
-    expect(html).toMatch(/rel=["']manifest["']/);
-    expect(html).toMatch(/manifest\.webmanifest/);
+  it('sets static install metadata without duplicating plugin-injected manifest', () => {
+    expect(html).not.toMatch(/rel=["']manifest["']/);
     expect(html).toMatch(/theme-color.*#fef9f3/i);
     expect(html).toMatch(/rel=["']apple-touch-icon["']/);
-    expect(html).not.toMatch(/apple-mobile-web-app-capable/);
   });
 
-  it('serves manifest as a regular browser web app', () => {
-    expect(manifest).toMatch(/"display":\s*"browser"/);
-    expect(manifest).toMatch(/"start_url":\s*"\/index\.html"/);
+  it('configures the PWA plugin to inject the manifest at build time', () => {
+    expect(viteConfig).toMatch(/VitePWA\(/);
+    expect(viteConfig).toMatch(/manifest:\s*\{/);
   });
 });

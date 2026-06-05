@@ -63,6 +63,9 @@ export default function LoginScreen() {
         >
           訪客
         </button>
+        <p className="login-screen__guest-hint">
+          訪客僅限本機使用。登入 Google 帳號可跨裝置同步，並與另一位家長共享家庭任務。
+        </p>
         {error && (
           <p className="login-screen__error" role="alert">
             {error}
@@ -113,6 +116,9 @@ export default function LoginScreen() {
       >
         訪客
       </button>
+      <p className="login-screen__guest-hint">
+        訪客僅限本機使用。登入 Google 帳號可跨裝置同步，並與另一位家長共享家庭任務。
+      </p>
       {error && (
         <p className="login-screen__error" role="alert">
           {error}

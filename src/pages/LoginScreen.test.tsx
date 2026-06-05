@@ -66,5 +66,6 @@ describe('LoginScreen emulator mode', () => {
   it('shows guest entry in emulator mode', () => {
     render(<LoginScreen />);
     expect(screen.getByRole('button', { name: '訪客' })).toBeInTheDocument();
+    expect(screen.getByText(/跨裝置同步/)).toBeInTheDocument();
   });
 });
