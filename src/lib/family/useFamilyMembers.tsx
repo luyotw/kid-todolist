@@ -10,6 +10,8 @@ import { subscribeCollection } from '../firestore';
 import { familyPaths } from './paths';
 import type { FamilyMember } from './types';
 
+type FamilyMemberDoc = FamilyMember & { id: string };
+
 export interface FamilyMemberRow {
   uid: string;
   member: FamilyMember;
@@ -40,19 +42,13 @@ export function FamilyMembersProvider({
     }
 
     setLoading(true);
-    return subscribeCollection<FamilyMember>(
+    return subscribeCollection<FamilyMemberDoc>(
       familyPaths.members(familyId),
       (items) => {
         setMembers(
-          items.map((item) => ({
-            uid: item.id,
-            member: {
-              role: item.role,
-              joinedAt: item.joinedAt,
-              displayName: item.displayName,
-              emailLocal: item.emailLocal,
-              inviteToken: item.inviteToken,
-            },
+          items.map(({ id, ...member }) => ({
+            uid: id,
+            member,
           })),
         );
         setLoading(false);

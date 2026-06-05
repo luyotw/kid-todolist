@@ -19,7 +19,6 @@ import {
 import { validateInviteTokenDoc, type InviteErrorCode } from './inviteValidation';
 import { familyPaths } from './paths';
 import type {
-  FamilyMember,
   FamilyProfile,
   InviteTokenDoc,
   UserMembership,
