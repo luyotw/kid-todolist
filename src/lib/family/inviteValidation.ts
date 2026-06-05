@@ -25,6 +25,10 @@ export const INVITE_USER_MESSAGES: Record<
   JOINED: '已加入家庭',
 };
 
+export const FAMILY_UI_MESSAGES = {
+  COPY_OK: '已複製到剪貼簿',
+} as const;
+
 export type InviteValidationResult =
   | { ok: true }
   | { ok: false; code: InviteErrorCode };

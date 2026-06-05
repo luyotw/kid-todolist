@@ -87,7 +87,18 @@ function JoinFlowHandler() {
 
     processedRef.current = true;
     void (async () => {
-      const result = await acceptInvite(user.uid, token, { online });
+      const profile = {
+        ...(user.displayName?.trim()
+          ? { displayName: user.displayName.trim() }
+          : {}),
+        ...(user.email?.split('@')[0]?.trim()
+          ? { emailLocal: user.email.split('@')[0].trim() }
+          : {}),
+      };
+      const result = await acceptInvite(user.uid, token, {
+        online,
+        profile: Object.keys(profile).length > 0 ? profile : undefined,
+      });
       clearPendingJoinToken();
       clearLocationJoinParam();
       if (result.ok) {
@@ -102,7 +113,15 @@ function JoinFlowHandler() {
   if (!message) return null;
   return (
     <div className="app-status" role="status" data-testid="join-flow-status">
-      {message}
+      <span>{message}</span>
+      <button
+        type="button"
+        className="app-status__dismiss"
+        aria-label="關閉"
+        onClick={() => setMessage(null)}
+      >
+        關閉
+      </button>
     </div>
   );
 }
