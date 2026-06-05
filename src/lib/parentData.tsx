@@ -12,16 +12,19 @@ import type { AdhocTask, Task } from '../types';
 import { useAuth } from './auth';
 import {
   isLocalSnapshotEmpty,
+  loadingSync,
   mergeSyncMeta,
-  pushLocalSnapshotToCloud,
+  pushSnapshotToPaths,
   readySync,
   runCloudWrite,
   useOnlineStatus,
   type CloudSyncMeta,
   type LocalParentSnapshot,
 } from './cloudSync';
+import { resolveCloudSyncTarget } from './cloudSyncTarget';
+import { useFamilyMembership } from './family/useFamilyMembership';
+import { maybeMigrateLegacyUserCloud } from './legacyCloudMigration';
 import {
-  paths,
   removeDoc,
   subscribeCollection,
   subscribeDoc,
@@ -200,9 +203,13 @@ function useLocalSettingsState() {
 
 export function ParentDataProvider({ children }: { children: ReactNode }) {
   const { user, configured } = useAuth();
+  const { membership, loading: membershipLoading } = useFamilyMembership();
   const online = useOnlineStatus();
-  const cloudMode = configured && Boolean(user);
   const uid = user?.uid ?? '';
+  const syncTarget = resolveCloudSyncTarget(membership);
+  const membershipPending = configured && Boolean(user) && membershipLoading;
+  const cloudMode =
+    configured && Boolean(user) && !membershipLoading && syncTarget.enabled;
 
   const localTasks = useLocalTasks();
   const localCompletions = useLocalCompletions();
@@ -217,7 +224,19 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
   const initialSyncDoneRef = useRef(false);
 
   useEffect(() => {
-    if (!cloudMode) {
+    if (!configured || !user) {
+      setCloudSyncReady(true);
+      initialSyncDoneRef.current = false;
+      return;
+    }
+
+    if (membershipLoading) {
+      setCloudSyncReady(false);
+      initialSyncDoneRef.current = false;
+      return;
+    }
+
+    if (!syncTarget.enabled) {
       setCloudSyncReady(true);
       initialSyncDoneRef.current = false;
       return;
@@ -225,6 +244,10 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
 
     setCloudSyncReady(false);
     initialSyncDoneRef.current = false;
+
+    const syncPaths = syncTarget.paths;
+    let cancelled = false;
+    let cleanup = () => {};
 
     const cloudSnap = {
       tasks: [] as Task[],
@@ -240,7 +263,7 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
     };
 
     const finishInitialSync = () => {
-      if (initialSyncDoneRef.current) return;
+      if (cancelled || initialSyncDoneRef.current) return;
       if (!loaded.tasks || !loaded.completions || !loaded.adhoc || !loaded.settings) {
         return;
       }
@@ -254,7 +277,7 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
         localSettings.setSettings(cloudSnap.settings);
       } else {
         void runCloudWrite(
-          () => pushLocalSnapshotToCloud(uid, localSnap),
+          () => pushSnapshotToPaths(syncPaths, localSnap),
           (msg) => {
             setTasksError(msg);
             setCompletionsError(msg);
@@ -266,8 +289,11 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
       setCloudSyncReady(true);
     };
 
-    const unsubTasks = subscribeCollection<Task>(
-      paths.tasks(uid),
+    const startSubscriptions = () => {
+      if (cancelled) return;
+
+      const unsubTasks = subscribeCollection<Task>(
+      syncPaths.tasks,
       (items) => {
         cloudSnap.tasks = items;
         loaded.tasks = true;
@@ -281,7 +307,7 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
     );
 
     const unsubCompletions = subscribeCollection<CompletionDay>(
-      paths.completions(uid),
+      syncPaths.completions,
       (items) => {
         const next: StoredCompletions = {};
         for (const day of items) next[day.id] = day.ids ?? [];
@@ -297,7 +323,7 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
     );
 
     const unsubAdhoc = subscribeCollection<AdhocTask>(
-      paths.adhoc(uid),
+      syncPaths.adhoc,
       (items) => {
         cloudSnap.adhoc = items;
         loaded.adhoc = true;
@@ -310,27 +336,47 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
       },
     );
 
-    const unsubSettings = subscribeDoc<SettingsDoc>(
-      paths.settings(uid),
-      (data) => {
-        cloudSnap.settings = settingsFromDoc(data);
-        loaded.settings = true;
-        finishInitialSync();
-      },
-      (err) => {
-        setSettingsError(firestoreReadError('獎勵設定', err));
-        loaded.settings = true;
-        finishInitialSync();
-      },
-    );
+      const unsubSettings = subscribeDoc<SettingsDoc>(
+        syncPaths.settings,
+        (data) => {
+          cloudSnap.settings = settingsFromDoc(data);
+          loaded.settings = true;
+          finishInitialSync();
+        },
+        (err) => {
+          setSettingsError(firestoreReadError('獎勵設定', err));
+          loaded.settings = true;
+          finishInitialSync();
+        },
+      );
+
+      cleanup = () => {
+        unsubTasks();
+        unsubCompletions();
+        unsubAdhoc();
+        unsubSettings();
+      };
+    };
+
+    void (async () => {
+      if (membership) {
+        await maybeMigrateLegacyUserCloud(uid, membership);
+      }
+      startSubscriptions();
+    })();
 
     return () => {
-      unsubTasks();
-      unsubCompletions();
-      unsubAdhoc();
-      unsubSettings();
+      cancelled = true;
+      cleanup();
     };
-  }, [cloudMode, uid]);
+  }, [
+    configured,
+    user?.uid,
+    membership?.familyId,
+    membership?.activeChildId,
+    membershipLoading,
+    syncTarget.enabled,
+  ]);
 
   const tasks = localTasks.tasks;
   const allCompletions = localCompletions.all;
@@ -347,12 +393,13 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
     ready: cloudSyncReady,
   });
 
-  const tasksSync = cloudMode ? cloudSyncMeta(tasksError) : readySync;
+  const idleSync = membershipPending ? loadingSync : readySync;
+  const tasksSync = cloudMode ? cloudSyncMeta(tasksError) : idleSync;
   const completionsSync = cloudMode
     ? cloudSyncMeta(completionsError)
-    : readySync;
-  const adhocSync = cloudMode ? cloudSyncMeta(adhocError) : readySync;
-  const rewardSync = cloudMode ? cloudSyncMeta(settingsError) : readySync;
+    : idleSync;
+  const adhocSync = cloudMode ? cloudSyncMeta(adhocError) : idleSync;
+  const rewardSync = cloudMode ? cloudSyncMeta(settingsError) : idleSync;
 
   const sync = mergeSyncMeta(
     tasksSync,
@@ -374,12 +421,12 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
       localSettings.setSettings(next);
       if (cloudMode) {
         void runCloudWrite(
-          () => writeSingleton(paths.settings(uid), settingsToDoc(next)),
+          () => writeSingleton(syncTarget.paths.settings, settingsToDoc(next)),
           setSettingsErrorMsg,
         );
       }
     },
-    [cloudMode, uid, localSettings, setSettingsErrorMsg],
+    [cloudMode, syncTarget.paths, localSettings, setSettingsErrorMsg],
   );
 
   const createTask = useCallback(
@@ -390,12 +437,12 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
       localTasks.setTasks(next);
       if (cloudMode) {
         void runCloudWrite(
-          () => writeDoc(paths.tasks(uid), created.id, taskToFirestore(created)),
+          () => writeDoc(syncTarget.paths.tasks, created.id, taskToFirestore(created)),
           setTasksErrorMsg,
         );
       }
     },
-    [cloudMode, uid, tasks, localTasks, setTasksErrorMsg],
+    [cloudMode, syncTarget.paths, tasks, localTasks, setTasksErrorMsg],
   );
 
   const updateTask = useCallback(
@@ -406,12 +453,12 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
       localTasks.setTasks(next);
       if (cloudMode) {
         void runCloudWrite(
-          () => writeDoc(paths.tasks(uid), id, taskToFirestore(updated)),
+          () => writeDoc(syncTarget.paths.tasks, id, taskToFirestore(updated)),
           setTasksErrorMsg,
         );
       }
     },
-    [cloudMode, uid, tasks, localTasks, setTasksErrorMsg],
+    [cloudMode, syncTarget.paths, tasks, localTasks, setTasksErrorMsg],
   );
 
   const removeTask = useCallback(
@@ -419,7 +466,7 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
       localTasks.setTasks((prev) => deleteTaskPure(prev, id));
       if (cloudMode) {
         void runCloudWrite(
-          () => removeDoc(paths.tasks(uid), id),
+          () => removeDoc(syncTarget.paths.tasks, id),
           setTasksErrorMsg,
         );
       }
@@ -471,12 +518,12 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
       if (cloudMode) {
         void runCloudWrite(async () => {
           if (ids.length === 0) {
-            await removeDoc(paths.completions(uid), dateStr);
+            await removeDoc(syncTarget.paths.completions, dateStr);
           } else {
-            await writeDoc(paths.completions(uid), dateStr, { ids });
+            await writeDoc(syncTarget.paths.completions, dateStr, { ids });
           }
           if (nextSettings !== settings) {
-            await writeSingleton(paths.settings(uid), settingsToDoc(nextSettings));
+            await writeSingleton(syncTarget.paths.settings, settingsToDoc(nextSettings));
           }
         }, setCompletionsErrorMsg);
       }
@@ -488,6 +535,7 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
       tasks,
       settings,
       uid,
+      syncTarget.paths,
       localCompletions,
       localSettings,
       setCompletionsErrorMsg,
@@ -507,7 +555,7 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
       if (cloudMode) {
         void runCloudWrite(
           () =>
-            writeDoc(paths.adhoc(uid), created.id, {
+            writeDoc(syncTarget.paths.adhoc, created.id, {
               title: created.title,
               date: created.date,
               createdAt: created.createdAt,
@@ -516,7 +564,7 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
         );
       }
     },
-    [cloudMode, uid, allAdhoc, localAdhoc, setAdhocErrorMsg],
+    [cloudMode, syncTarget.paths, allAdhoc, localAdhoc, setAdhocErrorMsg],
   );
 
   const removeAdhocItem = useCallback(
@@ -524,7 +572,7 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
       localAdhoc.setAll((prev) => deleteAdhocPure(prev, id));
       if (cloudMode) {
         void runCloudWrite(
-          () => removeDoc(paths.adhoc(uid), id),
+          () => removeDoc(syncTarget.paths.adhoc, id),
           setAdhocErrorMsg,
         );
       }

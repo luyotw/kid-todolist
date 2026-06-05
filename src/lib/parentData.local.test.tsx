@@ -24,6 +24,14 @@ vi.mock('./auth', () => ({
   }),
 }));
 
+vi.mock('./family/useFamilyMembership', () => ({
+  useFamilyMembership: () => ({
+    membership: null,
+    loading: false,
+    refresh: vi.fn(),
+  }),
+}));
+
 describe('hooks local fallback', () => {
   beforeEach(() => {
     window.localStorage.clear();

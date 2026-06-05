@@ -2,9 +2,12 @@ import {
   collection,
   doc,
   deleteDoc,
+  getDoc,
+  getDocs,
   onSnapshot,
   setDoc,
   type DocumentData,
+  type Firestore,
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { familyPaths } from './family/paths';
@@ -25,9 +28,10 @@ export function subscribeCollection<T>(
   collectionPath: string,
   onData: (items: T[]) => void,
   onError?: (error: Error) => void,
+  firestore: Firestore = db,
 ): () => void {
   return onSnapshot(
-    collection(db, collectionPath),
+    collection(firestore, collectionPath),
     (snap) => {
       onData(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as T));
     },
@@ -40,9 +44,10 @@ export function subscribeDoc<T>(
   docPath: string,
   onData: (data: T | null) => void,
   onError?: (error: Error) => void,
+  firestore: Firestore = db,
 ): () => void {
   return onSnapshot(
-    doc(db, docPath),
+    doc(firestore, docPath),
     (snap) => {
       onData(snap.exists() ? (snap.data() as T) : null);
     },
@@ -54,17 +59,47 @@ export function writeDoc<T extends DocumentData>(
   collectionPath: string,
   id: string,
   data: T,
+  firestore: Firestore = db,
 ): Promise<void> {
-  return setDoc(doc(db, collectionPath, id), data);
+  return setDoc(doc(firestore, collectionPath, id), data);
 }
 
 export function writeSingleton<T extends DocumentData>(
   docPath: string,
   data: T,
+  firestore: Firestore = db,
 ): Promise<void> {
-  return setDoc(doc(db, docPath), data);
+  return setDoc(doc(firestore, docPath), data);
 }
 
-export function removeDoc(collectionPath: string, id: string): Promise<void> {
-  return deleteDoc(doc(db, collectionPath, id));
+export function removeDoc(
+  collectionPath: string,
+  id: string,
+  firestore: Firestore = db,
+): Promise<void> {
+  return deleteDoc(doc(firestore, collectionPath, id));
+}
+
+export async function isCollectionEmpty(
+  collectionPath: string,
+  firestore: Firestore = db,
+): Promise<boolean> {
+  const snap = await getDocs(collection(firestore, collectionPath));
+  return snap.empty;
+}
+
+export async function readSingletonDoc<T>(
+  docPath: string,
+  firestore: Firestore = db,
+): Promise<T | null> {
+  const snap = await getDoc(doc(firestore, docPath));
+  return snap.exists() ? (snap.data() as T) : null;
+}
+
+export async function listCollectionDocs<T extends { id: string }>(
+  collectionPath: string,
+  firestore: Firestore = db,
+): Promise<T[]> {
+  const snap = await getDocs(collection(firestore, collectionPath));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as T);
 }

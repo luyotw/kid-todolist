@@ -1,7 +1,18 @@
 import { useEffect, useState } from 'react';
+import type { Firestore } from 'firebase/firestore';
 import type { AdhocTask, Task } from '../types';
+import type { CloudSyncPaths } from './cloudSyncTarget';
+export type { CloudSyncPaths } from './cloudSyncTarget';
+import { db } from './firebase';
+import {
+  listCollectionDocs,
+  paths,
+  readSingletonDoc,
+  writeDoc,
+  writeSingleton,
+} from './firestore';
 import type { ParentSettings } from './settings';
-import { paths, writeDoc, writeSingleton } from './firestore';
+import { normalizeSettings } from './settings';
 
 export interface CloudSyncMeta {
   loading: boolean;
@@ -78,6 +89,19 @@ export function isLocalSnapshotEmpty(snapshot: LocalParentSnapshot): boolean {
   );
 }
 
+interface SettingsDoc {
+  completionMessage?: string;
+  rewards?: ParentSettings['rewards'];
+  pointsBalance?: number;
+  rewardText?: string;
+  rewardCost?: number;
+}
+
+interface CompletionDay {
+  id: string;
+  ids?: string[];
+}
+
 function taskToFirestore(task: Task) {
   return {
     title: task.title,
@@ -100,26 +124,75 @@ function settingsToDoc(settings: ParentSettings) {
   };
 }
 
-export async function pushLocalSnapshotToCloud(
-  uid: string,
+function settingsFromDoc(data: SettingsDoc | null): ParentSettings {
+  if (!data) return normalizeSettings(null);
+  return normalizeSettings({
+    completionMessage: data.completionMessage,
+    rewards: data.rewards,
+    pointsBalance: data.pointsBalance,
+    rewardText: data.rewardText,
+    rewardCost: data.rewardCost,
+  });
+}
+
+export async function pushSnapshotToPaths(
+  syncPaths: CloudSyncPaths,
   snapshot: LocalParentSnapshot,
+  firestore: Firestore = db,
 ): Promise<void> {
   await Promise.all([
     ...snapshot.tasks.map((task) =>
-      writeDoc(paths.tasks(uid), task.id, taskToFirestore(task)),
+      writeDoc(syncPaths.tasks, task.id, taskToFirestore(task), firestore),
     ),
     ...snapshot.adhoc.map((item) =>
-      writeDoc(paths.adhoc(uid), item.id, {
-        title: item.title,
-        date: item.date,
-        createdAt: item.createdAt,
-      }),
+      writeDoc(
+        syncPaths.adhoc,
+        item.id,
+        {
+          title: item.title,
+          date: item.date,
+          createdAt: item.createdAt,
+        },
+        firestore,
+      ),
     ),
     ...Object.entries(snapshot.completions).flatMap(([dateStr, ids]) =>
       ids.length === 0
         ? []
-        : [writeDoc(paths.completions(uid), dateStr, { ids })],
+        : [writeDoc(syncPaths.completions, dateStr, { ids }, firestore)],
     ),
-    writeSingleton(paths.settings(uid), settingsToDoc(snapshot.settings)),
+    writeSingleton(syncPaths.settings, settingsToDoc(snapshot.settings), firestore),
   ]);
+}
+
+/** @deprecated 使用 pushSnapshotToPaths；保留供測試過渡。 */
+export async function pushLocalSnapshotToCloud(
+  syncPaths: CloudSyncPaths,
+  snapshot: LocalParentSnapshot,
+): Promise<void> {
+  return pushSnapshotToPaths(syncPaths, snapshot);
+}
+
+export async function readLegacyUserCloudSnapshot(
+  uid: string,
+  firestore: Firestore = db,
+): Promise<LocalParentSnapshot> {
+  const [tasks, adhoc, completionDays, settingsDoc] = await Promise.all([
+    listCollectionDocs<Task>(paths.tasks(uid), firestore),
+    listCollectionDocs<AdhocTask>(paths.adhoc(uid), firestore),
+    listCollectionDocs<CompletionDay>(paths.completions(uid), firestore),
+    readSingletonDoc<SettingsDoc>(paths.settings(uid), firestore),
+  ]);
+
+  const completions: Record<string, string[]> = {};
+  for (const day of completionDays) {
+    completions[day.id] = day.ids ?? [];
+  }
+
+  return {
+    tasks,
+    adhoc,
+    completions,
+    settings: settingsFromDoc(settingsDoc),
+  };
 }

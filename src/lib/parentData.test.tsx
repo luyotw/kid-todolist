@@ -8,8 +8,11 @@ import {
   useCompletions,
   useAdhoc,
   usePoints,
+  useDataSync,
 } from './parentData';
 import * as firestore from './firestore';
+import { maybeMigrateLegacyUserCloud } from './legacyCloudMigration';
+import type { UserMembership } from './family/types';
 
 vi.mock('./firebase', () => ({
   isFirebaseConfigured: true,
@@ -18,10 +21,14 @@ vi.mock('./firebase', () => ({
   app: {},
 }));
 
+const authState = vi.hoisted(() => ({
+  user: { uid: 'test-uid', displayName: 'Test Parent' },
+}));
+
 vi.mock('./auth', () => ({
   AuthProvider: ({ children }: { children: ReactNode }) => children,
   useAuth: () => ({
-    user: { uid: 'test-uid', displayName: 'Test Parent' },
+    user: authState.user,
     loading: false,
     configured: true,
     isGuest: false,
@@ -30,6 +37,32 @@ vi.mock('./auth', () => ({
     signOutUser: vi.fn(),
   }),
 }));
+
+vi.mock('./legacyCloudMigration', () => ({
+  maybeMigrateLegacyUserCloud: vi.fn().mockResolvedValue(undefined),
+}));
+
+const membershipState = vi.hoisted(() => ({
+  membership: {
+    familyId: 'fam-1',
+    activeChildId: '_default',
+  } as UserMembership | null,
+  loading: false,
+}));
+
+vi.mock('./family/useFamilyMembership', () => ({
+  useFamilyMembership: () => ({
+    membership: membershipState.membership,
+    loading: membershipState.loading,
+    refresh: vi.fn(),
+  }),
+}));
+
+const FAMILY_MEMBERSHIP = { familyId: 'fam-1', activeChildId: '_default' as const };
+
+const FAMILY_TASKS = 'families/fam-1/children/_default/tasks';
+
+const FAMILY_SETTINGS = 'families/fam-1/children/_default/meta/settings';
 
 function wrapper({ children }: { children: ReactNode }) {
   return <ParentDataProvider>{children}</ParentDataProvider>;
@@ -51,6 +84,8 @@ function mockCloudSubscriptions() {
 
 describe('useTasks cloud mode', () => {
   beforeEach(() => {
+    membershipState.membership = { ...FAMILY_MEMBERSHIP };
+    membershipState.loading = false;
     mockCloudSubscriptions();
   });
 
@@ -65,15 +100,47 @@ describe('useTasks cloud mode', () => {
 
     await waitFor(() => expect(firestore.writeDoc).toHaveBeenCalled());
     expect(firestore.writeDoc).toHaveBeenCalledWith(
-      'users/test-uid/tasks',
+      FAMILY_TASKS,
       expect.any(String),
       expect.objectContaining({ title: '刷牙' }),
     );
   });
 });
 
+describe('parentData without membership', () => {
+  beforeEach(() => {
+    membershipState.membership = null;
+    membershipState.loading = false;
+    vi.spyOn(firestore, 'subscribeCollection');
+    vi.spyOn(firestore, 'subscribeDoc');
+  });
+
+  it('does not subscribe to Firestore when logged in without membership', async () => {
+    const { result } = renderHook(() => useTasks(), { wrapper });
+    await waitFor(() => expect(result.current.sync.ready).toBe(true));
+    expect(firestore.subscribeCollection).not.toHaveBeenCalled();
+    expect(firestore.subscribeDoc).not.toHaveBeenCalled();
+  });
+});
+
+describe('parentData membership loading', () => {
+  beforeEach(() => {
+    membershipState.membership = null;
+    membershipState.loading = true;
+    mockCloudSubscriptions();
+  });
+
+  it('keeps sync not ready while membership is loading', async () => {
+    const { result } = renderHook(() => useDataSync(), { wrapper });
+    expect(result.current.ready).toBe(false);
+    expect(result.current.loading).toBe(true);
+  });
+});
+
 describe('useReward cloud mode', () => {
   beforeEach(() => {
+    membershipState.membership = { ...FAMILY_MEMBERSHIP };
+    membershipState.loading = false;
     mockCloudSubscriptions();
   });
 
@@ -86,6 +153,8 @@ describe('useReward cloud mode', () => {
 
 describe('useCompletions cloud mode', () => {
   beforeEach(() => {
+    membershipState.membership = { ...FAMILY_MEMBERSHIP };
+    membershipState.loading = false;
     mockCloudSubscriptions();
   });
 
@@ -111,6 +180,8 @@ describe('useCompletions cloud mode', () => {
 
 describe('useAdhoc cloud mode', () => {
   beforeEach(() => {
+    membershipState.membership = { ...FAMILY_MEMBERSHIP };
+    membershipState.loading = false;
     vi.spyOn(firestore, 'subscribeDoc').mockImplementation((_path, onData) => {
       onData(null);
       return vi.fn();
@@ -152,6 +223,8 @@ describe('useAdhoc cloud mode', () => {
 
 describe('usePoints cloud mode — scheduled toggle credits balance', () => {
   beforeEach(() => {
+    membershipState.membership = { ...FAMILY_MEMBERSHIP };
+    membershipState.loading = false;
     vi.spyOn(firestore, 'subscribeDoc').mockImplementation((_path, onData) => {
       onData({
         completionMessage: '棒',
@@ -203,7 +276,7 @@ describe('usePoints cloud mode — scheduled toggle credits balance', () => {
 
     await waitFor(() => expect(result.current.points.balance).toBe(3));
     expect(firestore.writeSingleton).toHaveBeenCalledWith(
-      'users/test-uid/meta/settings',
+      FAMILY_SETTINGS,
       expect.objectContaining({ pointsBalance: 3 }),
     );
   });
@@ -211,6 +284,8 @@ describe('usePoints cloud mode — scheduled toggle credits balance', () => {
 
 describe('usePoints cloud mode — uncheck debits with floor', () => {
   beforeEach(() => {
+    membershipState.membership = { ...FAMILY_MEMBERSHIP };
+    membershipState.loading = false;
     vi.spyOn(firestore, 'subscribeDoc').mockImplementation((_path, onData) => {
       onData({
         completionMessage: '棒',
@@ -269,6 +344,8 @@ describe('usePoints cloud mode — uncheck debits with floor', () => {
 
 describe('usePoints cloud mode — adhoc toggle no points', () => {
   beforeEach(() => {
+    membershipState.membership = { ...FAMILY_MEMBERSHIP };
+    membershipState.loading = false;
     vi.spyOn(firestore, 'subscribeDoc').mockImplementation((_path, onData) => {
       onData({
         completionMessage: '棒',
@@ -315,5 +392,143 @@ describe('usePoints cloud mode — adhoc toggle no points', () => {
     );
     expect(result.current.points.balance).toBe(2);
     expect(firestore.writeSingleton).not.toHaveBeenCalled();
+  });
+});
+
+describe('parentData cloud read error', () => {
+  beforeEach(() => {
+    membershipState.membership = { ...FAMILY_MEMBERSHIP };
+    membershipState.loading = false;
+    vi.spyOn(firestore, 'subscribeCollection').mockImplementation((_path, _onData, onError) => {
+      onError?.(new Error('read failed'));
+      return vi.fn();
+    });
+    vi.spyOn(firestore, 'subscribeDoc').mockImplementation((_path, onData) => {
+      onData(null);
+      return vi.fn();
+    });
+  });
+
+  it('still becomes ready and surfaces read error while keeping local data usable', async () => {
+    window.localStorage.setItem(
+      'kid-todolist:tasks:v1',
+      JSON.stringify([{ id: 'local-1', title: '本機任務', weekdays: [0], createdAt: 0 }]),
+    );
+    const { result } = renderHook(() => useTasks(), { wrapper });
+    await waitFor(() => expect(result.current.sync.ready).toBe(true));
+    expect(result.current.sync.error).toBeTruthy();
+    expect(result.current.tasks.some((t) => t.title === '本機任務')).toBe(true);
+  });
+});
+
+describe('parentData local-first push', () => {
+  beforeEach(() => {
+    membershipState.membership = { ...FAMILY_MEMBERSHIP };
+    membershipState.loading = false;
+    window.localStorage.setItem(
+      'kid-todolist:tasks:v1',
+      JSON.stringify([{ id: 'local-1', title: '本機任務', weekdays: [0], createdAt: 0 }]),
+    );
+    mockCloudSubscriptions();
+    vi.spyOn(firestore, 'writeDoc').mockResolvedValue(undefined);
+    vi.spyOn(firestore, 'writeSingleton').mockResolvedValue(undefined);
+  });
+
+  it('pushes local snapshot to family cloud when cloud is empty', async () => {
+    const { result } = renderHook(() => useTasks(), { wrapper });
+    await waitFor(() => expect(result.current.sync.ready).toBe(true));
+    await waitFor(() => expect(firestore.writeDoc).toHaveBeenCalled());
+    expect(firestore.writeDoc).toHaveBeenCalledWith(
+      FAMILY_TASKS,
+      'local-1',
+      expect.objectContaining({ title: '本機任務' }),
+      expect.anything(),
+    );
+  });
+});
+
+describe('parentData legacy migration before subscribe', () => {
+  beforeEach(() => {
+    membershipState.membership = { ...FAMILY_MEMBERSHIP };
+    membershipState.loading = false;
+    window.localStorage.clear();
+    vi.mocked(maybeMigrateLegacyUserCloud).mockResolvedValue(undefined);
+    vi.spyOn(firestore, 'subscribeDoc').mockImplementation((_path, onData) => {
+      onData(null);
+      return vi.fn();
+    });
+    vi.spyOn(firestore, 'subscribeCollection').mockImplementation((path, onData) => {
+      if (path === FAMILY_TASKS) {
+        onData([
+          {
+            id: 'migrated-1',
+            title: '遷移任務',
+            weekdays: [0],
+            createdAt: 0,
+          },
+        ]);
+      } else {
+        onData([]);
+      }
+      return vi.fn();
+    });
+  });
+
+  it('waits for legacy migration before subscribing and hydrates migrated tasks', async () => {
+    let resolveMigration!: () => void;
+    const migrationPromise = new Promise<void>((resolve) => {
+      resolveMigration = resolve;
+    });
+    vi.mocked(maybeMigrateLegacyUserCloud).mockReturnValue(migrationPromise);
+
+    const { result } = renderHook(() => useTasks(), { wrapper });
+
+    expect(firestore.subscribeCollection).not.toHaveBeenCalled();
+    expect(firestore.subscribeDoc).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveMigration();
+      await migrationPromise;
+    });
+
+    await waitFor(() => expect(result.current.sync.ready).toBe(true));
+    expect(maybeMigrateLegacyUserCloud).toHaveBeenCalledWith(
+      'test-uid',
+      FAMILY_MEMBERSHIP,
+    );
+    expect(result.current.tasks.some((t) => t.title === '遷移任務')).toBe(true);
+  });
+});
+
+describe('parentData pull from empty local', () => {
+  beforeEach(() => {
+    membershipState.membership = { ...FAMILY_MEMBERSHIP };
+    membershipState.loading = false;
+    window.localStorage.clear();
+    vi.spyOn(firestore, 'subscribeDoc').mockImplementation((_path, onData) => {
+      onData(null);
+      return vi.fn();
+    });
+    vi.spyOn(firestore, 'subscribeCollection').mockImplementation((path, onData) => {
+      if (path === FAMILY_TASKS) {
+        onData([
+          {
+            id: 'cloud-1',
+            title: '雲端任務',
+            weekdays: [0],
+            createdAt: 0,
+          },
+        ]);
+      } else {
+        onData([]);
+      }
+      return vi.fn();
+    });
+  });
+
+  it('hydrates local tasks from family cloud when local is empty', async () => {
+    const { result } = renderHook(() => useTasks(), { wrapper });
+    await waitFor(() => expect(result.current.sync.ready).toBe(true));
+    expect(result.current.tasks.some((t) => t.title === '雲端任務')).toBe(true);
   });
 });
