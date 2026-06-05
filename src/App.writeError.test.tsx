@@ -14,10 +14,13 @@ vi.mock('./lib/firebase', () => ({
   app: {},
 }));
 
+const authUser = { uid: 'u1', displayName: '家長' };
+const familyMembership = { familyId: 'fam-1', activeChildId: '_default' };
+
 vi.mock('./lib/auth', () => ({
   AuthProvider: ({ children }: { children: React.ReactNode }) => children,
   useAuth: () => ({
-    user: { uid: 'u1', displayName: '家長' },
+    user: authUser,
     loading: false,
     configured: true,
     isGuest: false,
@@ -27,12 +30,33 @@ vi.mock('./lib/auth', () => ({
   }),
 }));
 
+vi.mock('./lib/family/useFamilyMembership', () => ({
+  FamilyMembershipProvider: ({ children }: { children: React.ReactNode }) => children,
+  useFamilyMembership: () => ({
+    membership: familyMembership,
+    loading: false,
+    refresh: vi.fn(),
+  }),
+}));
+
+vi.mock('./lib/legacyCloudMigration', () => ({
+  maybeMigrateLegacyUserCloud: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock('./lib/firestore', () => ({
   paths: {
     tasks: (uid: string) => `users/${uid}/tasks`,
     adhoc: (uid: string) => `users/${uid}/adhoc`,
     completions: (uid: string) => `users/${uid}/completions`,
     settings: (uid: string) => `users/${uid}/meta/settings`,
+    family: {
+      tasks: (familyId: string) => `families/${familyId}/children/_default/tasks`,
+      completions: (familyId: string) =>
+        `families/${familyId}/children/_default/completions`,
+      adhoc: (familyId: string) => `families/${familyId}/children/_default/adhoc`,
+      settings: (familyId: string) =>
+        `families/${familyId}/children/_default/meta/settings`,
+    },
   },
   subscribeCollection: (_path: string, onData: (items: unknown[]) => void) => {
     onData([]);

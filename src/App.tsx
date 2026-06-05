@@ -47,18 +47,22 @@ function AuthGate() {
     return <LoginScreen />;
   }
   return (
-    <ParentDataProvider>
-      <FamilyMembershipProvider uid={user && !isGuest ? user.uid : null}>
+    <FamilyMembershipProvider uid={user && !isGuest ? user.uid : null}>
+      <ParentDataProvider>
         <DataReadyGate />
-      </FamilyMembershipProvider>
-    </ParentDataProvider>
+      </ParentDataProvider>
+    </FamilyMembershipProvider>
   );
 }
 
 function DataReadyGate() {
-  const { configured } = useAuth();
+  const { configured, user, isGuest } = useAuth();
+  const { loading: membershipLoading } = useFamilyMembership();
   const sync = useDataSync();
 
+  if (configured && user && !isGuest && membershipLoading) {
+    return <div className="app-loading">載入資料中…</div>;
+  }
   if (configured && !sync.ready) {
     return <div className="app-loading">載入資料中…</div>;
   }
