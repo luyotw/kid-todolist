@@ -327,12 +327,6 @@ function FamilySection({
               複製連結
             </button>
           </div>
-          <p
-            className="settings-family__placeholder"
-            data-testid="multi-child-placeholder"
-          >
-            多位小孩切換（即將推出）
-          </p>
         </div>
       ) : (
         <div className="settings-family__create">

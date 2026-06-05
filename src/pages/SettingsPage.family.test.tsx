@@ -133,7 +133,6 @@ describe('SettingsPage family section', () => {
     expect(screen.getByTestId('family-member-user-1')).toBeInTheDocument();
     expect(screen.getByTestId('generate-invite-button')).toBeInTheDocument();
     expect(screen.getByTestId('copy-invite-button')).toBeInTheDocument();
-    expect(screen.getByTestId('multi-child-placeholder')).toBeInTheDocument();
   });
 
   it('shows offline message when generating invite while offline', async () => {
