@@ -34,9 +34,10 @@ export function clearLocationJoinParam(): void {
 
 export function buildInviteUrl(token: string): string {
   if (typeof window === 'undefined') {
-    return `/?join=${encodeURIComponent(token)}`;
+    return `/index.html?join=${encodeURIComponent(token)}`;
   }
   const url = new URL(window.location.href);
+  url.pathname = '/index.html';
   url.search = '';
   url.hash = '';
   url.searchParams.set('join', token);

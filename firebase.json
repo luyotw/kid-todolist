@@ -61,6 +61,13 @@
         ]
       }
     ],
+    "redirects": [
+      {
+        "source": "/",
+        "destination": "/index.html",
+        "type": 302
+      }
+    ],
     "rewrites": [{ "source": "**", "destination": "/index.html" }]
   },
   "firestore": {

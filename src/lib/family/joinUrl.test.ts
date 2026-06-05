@@ -43,9 +43,11 @@ describe('clearLocationJoinParam', () => {
 });
 
 describe('buildInviteUrl', () => {
-  it('includes join= and token in the URL', () => {
+  it('builds /index.html?join= invite links', () => {
     window.history.replaceState({}, '', '/app/');
-    expect(buildInviteUrl('my-token')).toContain('join=my-token');
+    expect(buildInviteUrl('my-token')).toBe(
+      `${window.location.origin}/index.html?join=my-token`,
+    );
   });
 });
 
