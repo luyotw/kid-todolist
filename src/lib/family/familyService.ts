@@ -12,10 +12,13 @@ import {
   INVITE_MAX_USES,
   INVITE_TTL_MS,
 } from './constants';
+import {
+  memberDocWithProfile,
+  type MemberProfileSnapshot,
+} from './memberDisplay';
 import { validateInviteTokenDoc, type InviteErrorCode } from './inviteValidation';
 import { familyPaths } from './paths';
 import type {
-  FamilyMember,
   FamilyProfile,
   InviteTokenDoc,
   UserMembership,
@@ -71,6 +74,7 @@ export async function getMembership(
 export async function createFamily(
   uid: string,
   firestore: FirestoreDb = db,
+  memberProfile?: MemberProfileSnapshot,
 ): Promise<CreateFamilyResult> {
   const existing = await readMembershipDoc(firestore, uid);
   if (existing) {
@@ -84,10 +88,13 @@ export async function createFamily(
     createdByUid: uid,
     defaultChildId: DEFAULT_CHILD_ID,
   };
-  const member: FamilyMember = {
-    role: 'owner',
-    joinedAt: now,
-  };
+  const member = memberDocWithProfile(
+    {
+      role: 'owner',
+      joinedAt: now,
+    },
+    memberProfile,
+  );
   const membership: UserMembership = {
     familyId,
     activeChildId: DEFAULT_CHILD_ID,
@@ -147,7 +154,12 @@ export async function createInviteToken(
 export async function acceptInvite(
   uid: string,
   token: string,
-  options: { online?: boolean; firestore?: FirestoreDb; now?: number } = {},
+  options: {
+    online?: boolean;
+    firestore?: FirestoreDb;
+    now?: number;
+    profile?: MemberProfileSnapshot;
+  } = {},
 ): Promise<AcceptInviteResult> {
   const firestore = options.firestore ?? db;
   const now = options.now ?? Date.now();
@@ -178,11 +190,14 @@ export async function acceptInvite(
   }
 
   const { familyId } = inviteDoc;
-  const member: FamilyMember = {
-    role: 'parent',
-    joinedAt: now,
-    inviteToken: token,
-  };
+  const member = memberDocWithProfile(
+    {
+      role: 'parent',
+      joinedAt: now,
+      inviteToken: token,
+    },
+    options.profile,
+  );
   const newMembership: UserMembership = {
     familyId,
     activeChildId: DEFAULT_CHILD_ID,

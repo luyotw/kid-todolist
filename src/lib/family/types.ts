@@ -9,6 +9,9 @@ export interface FamilyProfile {
 export interface FamilyMember {
   role: FamilyRole;
   joinedAt: number;
+  /** 建立／加入時寫入，供設定頁顯示可辨識名稱。 */
+  displayName?: string;
+  emailLocal?: string;
   /** 加入時寫入，供 rules 驗證 inviteTokens；owner 建立家庭時省略。 */
   inviteToken?: string;
 }

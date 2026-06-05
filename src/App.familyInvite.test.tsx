@@ -1,6 +1,8 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import App from './App';
+import { INVITE_USER_MESSAGES } from './lib/family/inviteValidation';
 
 const mockAcceptInvite = vi.fn();
 const mockCaptureJoinToken = vi.fn();
@@ -91,5 +93,76 @@ describe('App family invite join flow', () => {
     expect(mockClearPending).toHaveBeenCalled();
     expect(mockClearJoinParam).toHaveBeenCalled();
     expect(screen.getByTestId('join-flow-status')).toBeInTheDocument();
+    expect(screen.getByTestId('join-flow-status')).toHaveTextContent(
+      INVITE_USER_MESSAGES.JOINED,
+    );
+  });
+
+  it('shows dismissible status for already-member outcome', async () => {
+    mockReadPending.mockReturnValue('pending-token');
+    mockAcceptInvite.mockResolvedValue({
+      ok: true,
+      code: 'ALREADY_MEMBER',
+      familyId: 'fam-1',
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('join-flow-status')).toHaveTextContent(
+        INVITE_USER_MESSAGES.ALREADY_MEMBER,
+      );
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: '關閉' }));
+    expect(screen.queryByTestId('join-flow-status')).not.toBeInTheDocument();
+  });
+
+  it('shows error message for expired invite', async () => {
+    mockReadPending.mockReturnValue('pending-token');
+    mockAcceptInvite.mockResolvedValue({
+      ok: false,
+      code: 'EXPIRED',
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('join-flow-status')).toHaveTextContent(
+        INVITE_USER_MESSAGES.EXPIRED,
+      );
+    });
+  });
+
+  it('shows error message when invite is exhausted', async () => {
+    mockReadPending.mockReturnValue('pending-token');
+    mockAcceptInvite.mockResolvedValue({
+      ok: false,
+      code: 'EXHAUSTED',
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('join-flow-status')).toHaveTextContent(
+        INVITE_USER_MESSAGES.EXHAUSTED,
+      );
+    });
+  });
+
+  it('shows error message when user belongs to another family', async () => {
+    mockReadPending.mockReturnValue('pending-token');
+    mockAcceptInvite.mockResolvedValue({
+      ok: false,
+      code: 'OTHER_FAMILY',
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('join-flow-status')).toHaveTextContent(
+        INVITE_USER_MESSAGES.OTHER_FAMILY,
+      );
+    });
   });
 });

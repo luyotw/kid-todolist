@@ -1,3 +1,6 @@
+import { useState } from 'react';
+import { copyInviteUrl, FAMILY_UI_MESSAGES } from '../lib/family';
+
 interface FamilyInviteBannerProps {
   inviteUrl: string;
   onDismiss: () => void;
@@ -7,11 +10,12 @@ export default function FamilyInviteBanner({
   inviteUrl,
   onDismiss,
 }: FamilyInviteBannerProps) {
+  const [status, setStatus] = useState<string | null>(null);
+
   const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(inviteUrl);
-    } catch {
-      window.prompt('複製邀請連結：', inviteUrl);
+    const result = await copyInviteUrl(inviteUrl);
+    if (result === 'copied') {
+      setStatus(FAMILY_UI_MESSAGES.COPY_OK);
     }
   };
 
@@ -28,6 +32,11 @@ export default function FamilyInviteBanner({
       <p className="family-invite-banner__url" data-testid="family-invite-url">
         {inviteUrl}
       </p>
+      {status && (
+        <p className="family-invite-banner__status" role="status">
+          {status}
+        </p>
+      )}
       <div className="family-invite-banner__actions">
         <button type="button" onClick={() => void handleCopy()}>
           複製連結

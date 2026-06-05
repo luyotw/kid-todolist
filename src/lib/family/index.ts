@@ -15,7 +15,13 @@ export type {
   CreateFamilyResult,
   FamilyResult,
 } from './familyService';
-export { INVITE_USER_MESSAGES, validateInviteTokenDoc } from './inviteValidation';
+export { copyInviteUrl } from './copyInviteUrl';
+export type { CopyInviteResult } from './copyInviteUrl';
+export {
+  FAMILY_UI_MESSAGES,
+  INVITE_USER_MESSAGES,
+  validateInviteTokenDoc,
+} from './inviteValidation';
 export type { InviteErrorCode } from './inviteValidation';
 export {
   buildInviteUrl,
@@ -26,7 +32,18 @@ export {
   readPendingJoinToken,
   stashPendingJoinToken,
 } from './joinUrl';
+export {
+  formatMemberLabel,
+  memberProfileFromAuth,
+  roleLabel,
+} from './memberDisplay';
+export type { MemberProfileSnapshot } from './memberDisplay';
 export { familyPaths } from './paths';
+export {
+  FamilyMembersProvider,
+  useFamilyMembers,
+} from './useFamilyMembers';
+export type { FamilyMemberRow } from './useFamilyMembers';
 export {
   FamilyMembershipProvider,
   useFamilyMembership,
