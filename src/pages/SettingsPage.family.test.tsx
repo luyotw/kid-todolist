@@ -136,6 +136,23 @@ describe('SettingsPage family section', () => {
     expect(screen.getByTestId('multi-child-placeholder')).toBeInTheDocument();
   });
 
+  it('shows offline message when generating invite while offline', async () => {
+    vi.mocked(useFamilyMembership).mockReturnValue({
+      membership: { familyId: 'fam-1', activeChildId: '_default' },
+      loading: false,
+      refresh: vi.fn(),
+    });
+    vi.mocked(useOnlineStatus).mockReturnValue(false);
+
+    renderSettings();
+    await userEvent.click(screen.getByTestId('generate-invite-button'));
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      INVITE_USER_MESSAGES.OFFLINE,
+    );
+    expect(familyService.createInviteToken).not.toHaveBeenCalled();
+  });
+
   it('shows offline message when creating family while offline', async () => {
     vi.mocked(useFamilyMembership).mockReturnValue({
       membership: null,

@@ -133,4 +133,36 @@ describe('App family invite join flow', () => {
       );
     });
   });
+
+  it('shows error message when invite is exhausted', async () => {
+    mockReadPending.mockReturnValue('pending-token');
+    mockAcceptInvite.mockResolvedValue({
+      ok: false,
+      code: 'EXHAUSTED',
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('join-flow-status')).toHaveTextContent(
+        INVITE_USER_MESSAGES.EXHAUSTED,
+      );
+    });
+  });
+
+  it('shows error message when user belongs to another family', async () => {
+    mockReadPending.mockReturnValue('pending-token');
+    mockAcceptInvite.mockResolvedValue({
+      ok: false,
+      code: 'OTHER_FAMILY',
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('join-flow-status')).toHaveTextContent(
+        INVITE_USER_MESSAGES.OTHER_FAMILY,
+      );
+    });
+  });
 });

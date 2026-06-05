@@ -12,6 +12,7 @@ import {
   clearPendingJoinToken,
   FamilyMembershipProvider,
   INVITE_USER_MESSAGES,
+  memberProfileFromAuth,
   readPendingJoinToken,
   useFamilyMembership,
 } from './lib/family';
@@ -87,14 +88,7 @@ function JoinFlowHandler() {
 
     processedRef.current = true;
     void (async () => {
-      const profile = {
-        ...(user.displayName?.trim()
-          ? { displayName: user.displayName.trim() }
-          : {}),
-        ...(user.email?.split('@')[0]?.trim()
-          ? { emailLocal: user.email.split('@')[0].trim() }
-          : {}),
-      };
+      const profile = memberProfileFromAuth(user);
       const result = await acceptInvite(user.uid, token, {
         online,
         profile: Object.keys(profile).length > 0 ? profile : undefined,
