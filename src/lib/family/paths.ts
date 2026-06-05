@@ -11,6 +11,7 @@ const childRoot = (familyId: string, childId?: string) =>
 
 export const familyPaths = {
   profile: (familyId: string) => `${familyRoot(familyId)}/meta/profile`,
+  members: (familyId: string) => `${familyRoot(familyId)}/members`,
   member: (familyId: string, uid: string) =>
     `${familyRoot(familyId)}/members/${uid}`,
   invite: (familyId: string, token: string) =>
