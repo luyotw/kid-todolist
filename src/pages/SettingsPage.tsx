@@ -1,14 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../lib/auth';
+import { db } from '../lib/firebase';
 import { useOnlineStatus } from '../lib/cloudSync';
 import FamilyInviteBanner from '../components/FamilyInviteBanner';
 import {
   buildInviteUrl,
+  copyInviteUrl,
   createFamily,
   createInviteToken,
+  FAMILY_UI_MESSAGES,
+  formatMemberLabel,
   INVITE_USER_MESSAGES,
+  memberProfileFromAuth,
+  roleLabel,
   useFamilyMembership,
+  useFamilyMembers,
 } from '../lib/family';
+import {
+  FamilyMembersProvider,
+} from '../lib/family/useFamilyMembers';
 import { pointsShortfall } from '../lib/points';
 import type { RewardItem } from '../types';
 import { usePoints } from '../lib/usePoints';
@@ -54,6 +64,8 @@ export default function SettingsPage() {
     setNewCost(3);
   };
 
+  const profile = user ? memberProfileFromAuth(user) : undefined;
+
   const handleCreateFamily = async () => {
     if (!user || familyBusy) return;
     if (!online) {
@@ -63,7 +75,7 @@ export default function SettingsPage() {
     setFamilyBusy(true);
     setFamilyStatus(null);
     try {
-      const result = await createFamily(user.uid);
+      const result = await createFamily(user.uid, db, profile);
       if (!result.ok) {
         setFamilyStatus(INVITE_USER_MESSAGES[result.code]);
         return;
@@ -99,10 +111,9 @@ export default function SettingsPage() {
 
   const handleCopyInvite = async () => {
     if (!inviteUrl) return;
-    try {
-      await navigator.clipboard.writeText(inviteUrl);
-    } catch {
-      window.prompt('複製邀請連結：', inviteUrl);
+    const result = await copyInviteUrl(inviteUrl);
+    if (result === 'copied') {
+      setFamilyStatus(FAMILY_UI_MESSAGES.COPY_OK);
     }
   };
 
@@ -118,66 +129,18 @@ export default function SettingsPage() {
       )}
 
       {showFamilySection && (
-        <section
-          className="settings-family"
-          aria-labelledby="settings-family-heading"
-          data-testid="settings-family-section"
-        >
-          <h2 id="settings-family-heading" className="settings-family__heading">
-            家庭
-          </h2>
-          {familyStatus && (
-            <p className="settings-family__status" role="status">
-              {familyStatus}
-            </p>
-          )}
-          {membershipLoading ? (
-            <p className="settings-family__hint">載入家庭資料中…</p>
-          ) : membership ? (
-            <div className="settings-family__invite">
-              <p className="settings-family__hint">
-                分享連結給另一位家長，對方登入後即可加入同一家庭。
-              </p>
-              {inviteUrl ? (
-                <p className="settings-family__url" data-testid="settings-invite-url">
-                  {inviteUrl}
-                </p>
-              ) : (
-                <p className="settings-family__hint">尚未產生邀請連結。</p>
-              )}
-              <div className="settings-family__actions">
-                <button
-                  type="button"
-                  onClick={() => void handleGenerateInvite()}
-                  disabled={familyBusy}
-                >
-                  產生新連結
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handleCopyInvite()}
-                  disabled={!inviteUrl || familyBusy}
-                >
-                  複製連結
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="settings-family__create">
-              <p className="settings-family__hint">
-                建立家庭後，可產生邀請連結讓另一位家長加入。
-              </p>
-              <button
-                type="button"
-                data-testid="create-family-button"
-                onClick={() => void handleCreateFamily()}
-                disabled={familyBusy}
-              >
-                建立家庭
-              </button>
-            </div>
-          )}
-        </section>
+        <FamilyMembersProvider familyId={membership?.familyId ?? null}>
+          <FamilySection
+            membership={membership}
+            membershipLoading={membershipLoading}
+            familyStatus={familyStatus}
+            inviteUrl={inviteUrl}
+            familyBusy={familyBusy}
+            onCreateFamily={() => void handleCreateFamily()}
+            onGenerateInvite={() => void handleGenerateInvite()}
+            onCopyInvite={() => void handleCopyInvite()}
+          />
+        </FamilyMembersProvider>
       )}
 
       <p className="settings-points" data-testid="settings-balance">
@@ -256,6 +219,137 @@ export default function SettingsPage() {
         </form>
       </section>
     </div>
+  );
+}
+
+function FamilySection({
+  membership,
+  membershipLoading,
+  familyStatus,
+  inviteUrl,
+  familyBusy,
+  onCreateFamily,
+  onGenerateInvite,
+  onCopyInvite,
+}: {
+  membership: { familyId: string; activeChildId: string } | null;
+  membershipLoading: boolean;
+  familyStatus: string | null;
+  inviteUrl: string | null;
+  familyBusy: boolean;
+  onCreateFamily: () => void;
+  onGenerateInvite: () => void;
+  onCopyInvite: () => void;
+}) {
+  const { members, loading: membersLoading } = useFamilyMembers();
+  const [showFamilyId, setShowFamilyId] = useState(false);
+
+  return (
+    <section
+      className="settings-family"
+      aria-labelledby="settings-family-heading"
+      data-testid="settings-family-section"
+    >
+      <h2 id="settings-family-heading" className="settings-family__heading">
+        家庭
+      </h2>
+      {familyStatus && (
+        <p className="settings-family__status" role="status">
+          {familyStatus}
+        </p>
+      )}
+      {membershipLoading ? (
+        <p className="settings-family__hint">載入家庭資料中…</p>
+      ) : membership ? (
+        <div className="settings-family__invite">
+          <p className="settings-family__hint">
+            分享連結給另一位家長，對方登入後即可加入同一家庭。
+          </p>
+          {membersLoading ? (
+            <p className="settings-family__hint">載入成員中…</p>
+          ) : (
+            <ul
+              className="settings-family__members"
+              data-testid="settings-family-members"
+            >
+              {members.map(({ uid, member }) => (
+                <li key={uid} data-testid={`family-member-${uid}`}>
+                  <span className="settings-family__member-name">
+                    {formatMemberLabel(member, uid)}
+                  </span>
+                  <span className="settings-family__member-role">
+                    {roleLabel(member.role)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="settings-family__family-id">
+            <button
+              type="button"
+              className="settings-family__toggle-id"
+              aria-expanded={showFamilyId}
+              onClick={() => setShowFamilyId((open) => !open)}
+            >
+              {showFamilyId ? '隱藏家庭代碼' : '顯示家庭代碼'}
+            </button>
+            {showFamilyId && (
+              <p
+                className="settings-family__id"
+                data-testid="settings-family-id"
+              >
+                {membership.familyId}
+              </p>
+            )}
+          </div>
+          {inviteUrl ? (
+            <p className="settings-family__url" data-testid="settings-invite-url">
+              {inviteUrl}
+            </p>
+          ) : (
+            <p className="settings-family__hint">尚未產生邀請連結。</p>
+          )}
+          <div className="settings-family__actions">
+            <button
+              type="button"
+              data-testid="generate-invite-button"
+              onClick={onGenerateInvite}
+              disabled={familyBusy}
+            >
+              產生邀請連結
+            </button>
+            <button
+              type="button"
+              data-testid="copy-invite-button"
+              onClick={onCopyInvite}
+              disabled={!inviteUrl || familyBusy}
+            >
+              複製連結
+            </button>
+          </div>
+          <p
+            className="settings-family__placeholder"
+            data-testid="multi-child-placeholder"
+          >
+            多位小孩切換（即將推出）
+          </p>
+        </div>
+      ) : (
+        <div className="settings-family__create">
+          <p className="settings-family__hint">
+            建立家庭後，可產生邀請連結讓另一位家長加入。
+          </p>
+          <button
+            type="button"
+            data-testid="create-family-button"
+            onClick={onCreateFamily}
+            disabled={familyBusy}
+          >
+            建立家庭
+          </button>
+        </div>
+      )}
+    </section>
   );
 }
 
