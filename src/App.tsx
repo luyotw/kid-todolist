@@ -106,7 +106,11 @@ function JoinFlowHandler() {
 
   if (!message) return null;
   return (
-    <div className="app-status" role="status" data-testid="join-flow-status">
+    <div
+      className="app-status app-status--info"
+      role="status"
+      data-testid="join-flow-status"
+    >
       <span>{message}</span>
       <button
         type="button"

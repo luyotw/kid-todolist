@@ -117,6 +117,11 @@ body {
   color: #1e4b8a;
 }
 
+.app-status--info {
+  background: #eef4ff;
+  color: #1e4b8a;
+}
+
 .app-status--error {
   background: #fdecea;
   color: #b42318;
@@ -450,6 +455,158 @@ body {
   gap: 16px;
 }
 
+.settings-points {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #fff5ec;
+  color: var(--accent);
+}
+
+.settings-rewards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+}
+
+.settings-rewards__heading {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.settings-rewards__hint,
+.settings-rewards__empty {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.settings-rewards__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.reward-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.reward-card__main {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.reward-card__title {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 15px;
+  background: #fff;
+}
+
+.reward-card__cost {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  background: #fff;
+}
+
+.reward-card__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.reward-card__redeem,
+.reward-card__remove {
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  font-size: 14px;
+}
+
+.reward-card__redeem {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.reward-card__redeem[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.reward-card__remove {
+  color: var(--muted);
+}
+
+.reward-card__shortfall {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.reward-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+}
+
+.reward-add input {
+  flex: 1 1 140px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 15px;
+  background: #fff;
+}
+
+.reward-add select {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  background: #fff;
+}
+
+.reward-add button {
+  padding: 10px 16px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 14px;
+}
+
+.reward-add button[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .settings-family {
   display: flex;
   flex-direction: column;
@@ -482,6 +639,28 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.settings-family__actions button,
+.settings-family__create button {
+  padding: 10px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  font-size: 14px;
+}
+
+.settings-family__actions button:first-child,
+.settings-family__create button {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.settings-family__actions button[disabled],
+.settings-family__create button[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .settings-family__members {
@@ -566,6 +745,32 @@ body {
 .family-invite-banner__actions {
   display: flex;
   gap: 8px;
+}
+
+.family-invite-banner h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.family-invite-banner p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.family-invite-banner__actions button {
+  padding: 10px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  font-size: 14px;
+}
+
+.family-invite-banner__actions button:first-child {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
 }
 
 .settings-field {
