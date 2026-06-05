@@ -55,6 +55,10 @@ describe('TodayPage', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: '寫功課' }));
     expect(screen.getByText('今天 2 / 2 完成')).toBeInTheDocument();
     expect(screen.getByText('今天全部完成了！')).toBeInTheDocument();
+    expect(screen.getByTestId('all-done-character')).toHaveAttribute(
+      'src',
+      '/Bitzer.png',
+    );
   });
 
   it('resets completions across days (no carry-over)', () => {

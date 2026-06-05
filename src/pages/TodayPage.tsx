@@ -96,6 +96,12 @@ export default function TodayPage() {
 
       {allDone && (
         <div className="all-done" role="status" aria-live="polite">
+          <img
+            src="/Bitzer.png"
+            alt=""
+            className="all-done__image"
+            data-testid="all-done-character"
+          />
           <p className="all-done__heading">今天全部完成了！</p>
           <p className="all-done__reward">
             {rewardText.trim() || defaultReward}
