@@ -1,70 +1,48 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-  applyPwaUpdate,
-  registerSW,
-  subscribePwaUpdate,
-} from './register';
+import { clearLegacyPwaCaches } from './register';
 
-describe('registerSW', () => {
+describe('clearLegacyPwaCaches', () => {
   afterEach(() => {
     vi.unstubAllEnvs();
+    vi.restoreAllMocks();
   });
 
-  it('calls PWA register once in production when service worker is supported', async () => {
+  it('unregisters service workers and clears caches in production', async () => {
     vi.stubEnv('PROD', true);
+
+    const unregister = vi.fn().mockResolvedValue(true);
+    const getRegistrations = vi
+      .fn()
+      .mockResolvedValue([{ unregister }] as unknown as ServiceWorkerRegistration[]);
+    const deleteCache = vi.fn().mockResolvedValue(true);
+    const keys = vi.fn().mockResolvedValue(['workbox-precache-v2']);
+
     Object.defineProperty(globalThis, 'navigator', {
       configurable: true,
-      value: { serviceWorker: {} },
+      value: { serviceWorker: { getRegistrations } },
+    });
+    Object.defineProperty(globalThis, 'caches', {
+      configurable: true,
+      value: { keys, delete: deleteCache },
     });
 
-    const register = vi.fn(() => vi.fn());
-    await registerSW(register);
-    expect(register).toHaveBeenCalledTimes(1);
-    expect(register).toHaveBeenCalledWith(
-      expect.objectContaining({ immediate: true }),
-    );
+    await clearLegacyPwaCaches();
+
+    expect(getRegistrations).toHaveBeenCalledTimes(1);
+    expect(unregister).toHaveBeenCalledTimes(1);
+    expect(keys).toHaveBeenCalledTimes(1);
+    expect(deleteCache).toHaveBeenCalledWith('workbox-precache-v2');
   });
 
-  it('skips registration in development', async () => {
+  it('skips cleanup in development', async () => {
     vi.stubEnv('PROD', false);
-    const register = vi.fn();
-    await registerSW(register);
-    expect(register).not.toHaveBeenCalled();
-  });
-
-  it('notifies subscribers when onNeedRefresh fires', async () => {
-    vi.stubEnv('PROD', true);
+    const getRegistrations = vi.fn();
     Object.defineProperty(globalThis, 'navigator', {
       configurable: true,
-      value: { serviceWorker: {} },
+      value: { serviceWorker: { getRegistrations } },
     });
 
-    let onNeedRefresh: (() => void) | undefined;
-    const register = vi.fn((options) => {
-      onNeedRefresh = options?.onNeedRefresh;
-      return vi.fn();
-    });
-
-    const listener = vi.fn();
-    subscribePwaUpdate(listener);
-    await registerSW(register);
-
-    onNeedRefresh?.();
-    expect(listener).toHaveBeenCalledTimes(1);
-  });
-
-  it('applyPwaUpdate calls update function with reload', async () => {
-    vi.stubEnv('PROD', true);
-    Object.defineProperty(globalThis, 'navigator', {
-      configurable: true,
-      value: { serviceWorker: {} },
-    });
-
-    const update = vi.fn();
-    const register = vi.fn(() => update);
-    await registerSW(register);
-
-    await applyPwaUpdate();
-    expect(update).toHaveBeenCalledWith(true);
+    await clearLegacyPwaCaches();
+    expect(getRegistrations).not.toHaveBeenCalled();
   });
 });

@@ -1,10 +1,10 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
-import { registerSW } from './lib/pwa/register';
+import { clearLegacyPwaCaches } from './lib/pwa/register';
 import './styles.css';
 
-void registerSW();
+void clearLegacyPwaCaches();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
