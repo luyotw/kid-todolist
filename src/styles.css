@@ -455,6 +455,17 @@ body {
   gap: 16px;
 }
 
+.settings-version {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.settings-version a {
+  color: var(--accent);
+}
+
 .settings-points {
   margin: 0;
   font-size: 15px;

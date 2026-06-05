@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { APP_BUILD_ID } from '../lib/appVersion';
 import { useAuth } from '../lib/auth';
 import { db } from '../lib/firebase';
 import { useOnlineStatus } from '../lib/cloudSync';
@@ -218,6 +219,12 @@ export default function SettingsPage() {
           </button>
         </form>
       </section>
+
+      <p className="settings-version">
+        版本 {APP_BUILD_ID}
+        {' · '}
+        <a href="/reset.html">更新卡住？</a>
+      </p>
     </div>
   );
 }
