@@ -181,6 +181,7 @@ export async function acceptInvite(
   const member: FamilyMember = {
     role: 'parent',
     joinedAt: now,
+    inviteToken: token,
   };
   const newMembership: UserMembership = {
     familyId,

@@ -9,6 +9,8 @@ export interface FamilyProfile {
 export interface FamilyMember {
   role: FamilyRole;
   joinedAt: number;
+  /** 加入時寫入，供 rules 驗證 inviteTokens；owner 建立家庭時省略。 */
+  inviteToken?: string;
 }
 
 /** 供 #37 邀請流程使用；本 issue 僅定義欄位骨架。 */

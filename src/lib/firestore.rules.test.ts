@@ -190,10 +190,16 @@ describe('Firestore security rules — invite tokens', () => {
     );
   });
 
-  it('allows users without membership to create a family profile and owner member', async () => {
+  it('allows users without membership to create owner member then family profile', async () => {
     const alice = testEnv.authenticatedContext('alice');
     const db = alice.firestore();
 
+    await assertSucceeds(
+      setDoc(doc(db, 'families/fam-new/members/alice'), {
+        role: 'owner',
+        joinedAt: 1,
+      }),
+    );
     await assertSucceeds(
       setDoc(doc(db, 'families/fam-new/meta/profile'), {
         createdAt: 1,
@@ -201,10 +207,46 @@ describe('Firestore security rules — invite tokens', () => {
         defaultChildId: '_default',
       }),
     );
-    await assertSucceeds(
-      setDoc(doc(db, 'families/fam-new/members/alice'), {
-        role: 'owner',
+  });
+
+  it('denies parent self-join without a valid invite token', async () => {
+    const familyId = 'fam-1';
+    await seedFamilyMember(familyId, 'alice');
+
+    const bob = testEnv.authenticatedContext('bob');
+    const db = bob.firestore();
+
+    await assertFails(
+      setDoc(doc(db, `families/${familyId}/members/bob`), {
+        role: 'parent',
         joinedAt: 1,
+      }),
+    );
+  });
+
+  it('allows parent self-join when invite token is valid for the family', async () => {
+    const familyId = 'fam-1';
+    const token = 'token-valid';
+    await seedFamilyMember(familyId, 'alice');
+
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await setDoc(doc(db, `inviteTokens/${token}`), {
+        familyId,
+        createdAt: 1,
+        createdByUid: 'alice',
+        expiresAt: Date.now() + 86_400_000,
+        maxUses: 5,
+        usedCount: 0,
+      });
+    });
+
+    const bob = testEnv.authenticatedContext('bob');
+    await assertSucceeds(
+      setDoc(doc(bob.firestore(), `families/${familyId}/members/bob`), {
+        role: 'parent',
+        joinedAt: 1,
+        inviteToken: token,
       }),
     );
   });

@@ -27,12 +27,30 @@ service cloud.firestore {
       allow create: if request.auth != null && !userHasMembership();
     }
 
+    function validInviteTokenForFamily(familyId, token) {
+      let invite = get(/databases/$(database)/documents/inviteTokens/$(token));
+      return invite != null
+        && invite.data.familyId == familyId
+        && invite.data.expiresAt > request.time.toMillis()
+        && invite.data.usedCount < invite.data.maxUses;
+    }
+
     match /families/{familyId}/members/{uid} {
       allow read: if isFamilyMember(familyId);
       allow create: if request.auth.uid == uid
         && !userHasMembership()
         && request.resource.data.keys().hasAll(['role', 'joinedAt'])
-        && (request.resource.data.role == 'owner' || request.resource.data.role == 'parent');
+        && (
+          (
+            request.resource.data.role == 'owner'
+            && !exists(/databases/$(database)/documents/families/$(familyId)/meta/profile)
+          )
+          || (
+            request.resource.data.role == 'parent'
+            && request.resource.data.keys().hasAll(['inviteToken'])
+            && validInviteTokenForFamily(familyId, request.resource.data.inviteToken)
+          )
+        );
       allow update, delete: if isFamilyMember(familyId);
     }
 
