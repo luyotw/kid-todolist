@@ -11,6 +11,8 @@ vi.mock('./lib/firebase', () => ({
 
 vi.mock('./lib/pwa/register', () => ({
   registerSW: vi.fn(),
+  subscribePwaUpdate: () => () => {},
+  applyPwaUpdate: vi.fn(),
 }));
 
 vi.mock('./lib/auth', () => ({

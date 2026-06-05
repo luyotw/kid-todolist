@@ -17,6 +17,7 @@ import {
   useFamilyMembership,
 } from './lib/family';
 import { useOnlineStatus } from './lib/cloudSync';
+import PwaUpdateBanner from './components/PwaUpdateBanner';
 import LoginScreen from './pages/LoginScreen';
 import SettingsPage from './pages/SettingsPage';
 import TasksPage from './pages/TasksPage';
@@ -33,6 +34,7 @@ const TAB_TITLE: Record<Tab, string> = {
 export default function App() {
   return (
     <AuthProvider>
+      <PwaUpdateBanner />
       <AuthGate />
     </AuthProvider>
   );
