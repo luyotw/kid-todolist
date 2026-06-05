@@ -289,11 +289,10 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
       setCloudSyncReady(true);
     };
 
-    if (membership) {
-      void maybeMigrateLegacyUserCloud(uid, membership);
-    }
+    const startSubscriptions = () => {
+      if (cancelled) return;
 
-    const unsubTasks = subscribeCollection<Task>(
+      const unsubTasks = subscribeCollection<Task>(
       syncPaths.tasks,
       (items) => {
         cloudSnap.tasks = items;
@@ -337,26 +336,34 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
       },
     );
 
-    const unsubSettings = subscribeDoc<SettingsDoc>(
-      syncPaths.settings,
-      (data) => {
-        cloudSnap.settings = settingsFromDoc(data);
-        loaded.settings = true;
-        finishInitialSync();
-      },
-      (err) => {
-        setSettingsError(firestoreReadError('獎勵設定', err));
-        loaded.settings = true;
-        finishInitialSync();
-      },
-    );
+      const unsubSettings = subscribeDoc<SettingsDoc>(
+        syncPaths.settings,
+        (data) => {
+          cloudSnap.settings = settingsFromDoc(data);
+          loaded.settings = true;
+          finishInitialSync();
+        },
+        (err) => {
+          setSettingsError(firestoreReadError('獎勵設定', err));
+          loaded.settings = true;
+          finishInitialSync();
+        },
+      );
 
-    cleanup = () => {
-      unsubTasks();
-      unsubCompletions();
-      unsubAdhoc();
-      unsubSettings();
+      cleanup = () => {
+        unsubTasks();
+        unsubCompletions();
+        unsubAdhoc();
+        unsubSettings();
+      };
     };
+
+    void (async () => {
+      if (membership) {
+        await maybeMigrateLegacyUserCloud(uid, membership);
+      }
+      startSubscriptions();
+    })();
 
     return () => {
       cancelled = true;

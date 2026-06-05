@@ -11,6 +11,7 @@ import {
   useDataSync,
 } from './parentData';
 import * as firestore from './firestore';
+import { maybeMigrateLegacyUserCloud } from './legacyCloudMigration';
 import type { UserMembership } from './family/types';
 
 vi.mock('./firebase', () => ({
@@ -443,6 +444,59 @@ describe('parentData local-first push', () => {
       expect.objectContaining({ title: '本機任務' }),
       expect.anything(),
     );
+  });
+});
+
+describe('parentData legacy migration before subscribe', () => {
+  beforeEach(() => {
+    membershipState.membership = { ...FAMILY_MEMBERSHIP };
+    membershipState.loading = false;
+    window.localStorage.clear();
+    vi.mocked(maybeMigrateLegacyUserCloud).mockResolvedValue(undefined);
+    vi.spyOn(firestore, 'subscribeDoc').mockImplementation((_path, onData) => {
+      onData(null);
+      return vi.fn();
+    });
+    vi.spyOn(firestore, 'subscribeCollection').mockImplementation((path, onData) => {
+      if (path === FAMILY_TASKS) {
+        onData([
+          {
+            id: 'migrated-1',
+            title: '遷移任務',
+            weekdays: [0],
+            createdAt: 0,
+          },
+        ]);
+      } else {
+        onData([]);
+      }
+      return vi.fn();
+    });
+  });
+
+  it('waits for legacy migration before subscribing and hydrates migrated tasks', async () => {
+    let resolveMigration!: () => void;
+    const migrationPromise = new Promise<void>((resolve) => {
+      resolveMigration = resolve;
+    });
+    vi.mocked(maybeMigrateLegacyUserCloud).mockReturnValue(migrationPromise);
+
+    const { result } = renderHook(() => useTasks(), { wrapper });
+
+    expect(firestore.subscribeCollection).not.toHaveBeenCalled();
+    expect(firestore.subscribeDoc).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveMigration();
+      await migrationPromise;
+    });
+
+    await waitFor(() => expect(result.current.sync.ready).toBe(true));
+    expect(maybeMigrateLegacyUserCloud).toHaveBeenCalledWith(
+      'test-uid',
+      FAMILY_MEMBERSHIP,
+    );
+    expect(result.current.tasks.some((t) => t.title === '遷移任務')).toBe(true);
   });
 });
 
