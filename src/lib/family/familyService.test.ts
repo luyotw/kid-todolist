@@ -58,6 +58,39 @@ describe('createFamily', () => {
     expect(result).toEqual({ ok: false, code: 'ALREADY_HAS_FAMILY' });
     expect(mockRunTransaction).not.toHaveBeenCalled();
   });
+
+  it('writes member profile snapshot on create', async () => {
+    mockGetDoc
+      .mockResolvedValueOnce(docSnap(false))
+      .mockResolvedValue(docSnap(true, { role: 'owner' }));
+    const sets: unknown[] = [];
+    mockRunTransaction.mockImplementation(async (_db, fn) => {
+      const tx = {
+        get: vi.fn().mockResolvedValue(docSnap(false)),
+        set: vi.fn((_ref: unknown, data: unknown) => {
+          sets.push(data);
+        }),
+        update: vi.fn(),
+      };
+      await fn(tx);
+      return tx;
+    });
+
+    const result = await createFamily('user-1', {} as never, {
+      displayName: '家長A',
+      emailLocal: 'parent',
+    });
+    expect(result.ok).toBe(true);
+    expect(sets).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          role: 'owner',
+          displayName: '家長A',
+          emailLocal: 'parent',
+        }),
+      ]),
+    );
+  });
 });
 
 describe('acceptInvite', () => {
@@ -130,6 +163,40 @@ describe('acceptInvite', () => {
 
     const result = await acceptInvite('user-2', token);
     expect(result).toEqual({ ok: true, code: 'JOINED', familyId: 'fam-1' });
+  });
+
+  it('writes joiner profile snapshot on join', async () => {
+    mockGetDoc
+      .mockResolvedValueOnce(docSnap(true, inviteDoc))
+      .mockResolvedValueOnce(docSnap(false));
+
+    const sets: unknown[] = [];
+    mockRunTransaction.mockImplementation(async (_db, fn) => {
+      const tokenSnap = docSnap(true, inviteDoc);
+      const tx = {
+        get: vi.fn().mockResolvedValueOnce(tokenSnap).mockResolvedValueOnce(docSnap(false)),
+        set: vi.fn((_ref: unknown, data: unknown) => {
+          sets.push(data);
+        }),
+        update: vi.fn(),
+      };
+      await fn(tx);
+    });
+
+    await acceptInvite('user-2', token, {
+      profile: { displayName: '家長B', emailLocal: 'joiner' },
+    });
+
+    expect(sets).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          role: 'parent',
+          displayName: '家長B',
+          emailLocal: 'joiner',
+          inviteToken: token,
+        }),
+      ]),
+    );
   });
 });
 
