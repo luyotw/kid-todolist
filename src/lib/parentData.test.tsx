@@ -13,6 +13,7 @@ import {
 import * as firestore from './firestore';
 import { maybeMigrateLegacyUserCloud } from './legacyCloudMigration';
 import type { UserMembership } from './family/types';
+import type { AdhocTask } from '../types';
 
 vi.mock('./firebase', () => ({
   isFirebaseConfigured: true,
@@ -62,7 +63,38 @@ const FAMILY_MEMBERSHIP = { familyId: 'fam-1', activeChildId: '_default' as cons
 
 const FAMILY_TASKS = 'families/fam-1/children/_default/tasks';
 
+const FAMILY_ADHOC = 'families/fam-1/children/_default/adhoc';
+
 const FAMILY_SETTINGS = 'families/fam-1/children/_default/meta/settings';
+
+const DATE = '2026-01-05';
+
+function mockAdhocSubscription(initial: AdhocTask[]) {
+  let adhocOnData: (items: AdhocTask[]) => void = () => {};
+  vi.spyOn(firestore, 'subscribeDoc').mockImplementation((_path, onData) => {
+    onData(null);
+    return vi.fn();
+  });
+  vi.spyOn(firestore, 'writeDoc').mockResolvedValue(undefined);
+  vi.spyOn(firestore, 'writeSingleton').mockResolvedValue(undefined);
+  vi.spyOn(firestore, 'removeDoc').mockResolvedValue(undefined);
+  vi.spyOn(firestore, 'subscribeCollection').mockImplementation((path, onData) => {
+    if (path === FAMILY_ADHOC) {
+      adhocOnData = onData as typeof adhocOnData;
+      onData(initial);
+    } else {
+      onData([]);
+    }
+    return vi.fn();
+  });
+  return {
+    pushAdhoc(items: AdhocTask[]) {
+      act(() => {
+        adhocOnData(items);
+      });
+    },
+  };
+}
 
 function wrapper({ children }: { children: ReactNode }) {
   return <ParentDataProvider>{children}</ParentDataProvider>;
@@ -175,6 +207,106 @@ describe('useCompletions cloud mode', () => {
     rerender({ dateStr: '2026-01-06' });
     await waitFor(() => expect(result.current.sync.ready).toBe(true));
     expect(result.current.completedIds.has('task-a')).toBe(false);
+  });
+});
+
+describe('parentData adhoc cloud subscription updates', () => {
+  beforeEach(() => {
+    membershipState.membership = { ...FAMILY_MEMBERSHIP };
+    membershipState.loading = false;
+    window.localStorage.setItem(
+      'kid-todolist:adhoc:v1',
+      JSON.stringify([
+        {
+          id: 'local-1',
+          title: '本機臨時',
+          date: DATE,
+          createdAt: 0,
+        },
+      ]),
+    );
+  });
+
+  it('reflects a remote adhoc add after initial sync', async () => {
+    const initial = [
+      {
+        id: 'local-1',
+        title: '本機臨時',
+        date: DATE,
+        createdAt: 0,
+      },
+    ];
+    const { pushAdhoc } = mockAdhocSubscription(initial);
+
+    const { result } = renderHook(() => useAdhoc(DATE), { wrapper });
+    await waitFor(() => expect(result.current.sync.ready).toBe(true));
+    expect(result.current.adhocToday.map((item) => item.id)).toEqual(['local-1']);
+
+    pushAdhoc([
+      ...initial,
+      {
+        id: 'remote-1',
+        title: '遠端新增',
+        date: DATE,
+        createdAt: 1,
+      },
+    ]);
+
+    await waitFor(() =>
+      expect(result.current.adhocToday.map((item) => item.id)).toEqual([
+        'local-1',
+        'remote-1',
+      ]),
+    );
+  });
+
+  it('reflects a remote adhoc delete after initial sync', async () => {
+    window.localStorage.setItem(
+      'kid-todolist:adhoc:v1',
+      JSON.stringify([
+        {
+          id: 'local-1',
+          title: '本機臨時',
+          date: DATE,
+          createdAt: 0,
+        },
+        {
+          id: 'remote-1',
+          title: '遠端新增',
+          date: DATE,
+          createdAt: 1,
+        },
+      ]),
+    );
+
+    const initial = [
+      {
+        id: 'local-1',
+        title: '本機臨時',
+        date: DATE,
+        createdAt: 0,
+      },
+      {
+        id: 'remote-1',
+        title: '遠端新增',
+        date: DATE,
+        createdAt: 1,
+      },
+    ];
+    const { pushAdhoc } = mockAdhocSubscription(initial);
+
+    const { result } = renderHook(() => useAdhoc(DATE), { wrapper });
+    await waitFor(() => expect(result.current.sync.ready).toBe(true));
+    expect(result.current.adhocToday.map((item) => item.id)).toEqual([
+      'local-1',
+      'remote-1',
+    ]);
+
+    pushAdhoc([initial[0]]);
+
+    await waitFor(() =>
+      expect(result.current.adhocToday.map((item) => item.id)).toEqual(['local-1']),
+    );
   });
 });
 
@@ -530,5 +662,29 @@ describe('parentData pull from empty local', () => {
     const { result } = renderHook(() => useTasks(), { wrapper });
     await waitFor(() => expect(result.current.sync.ready).toBe(true));
     expect(result.current.tasks.some((t) => t.title === '雲端任務')).toBe(true);
+  });
+
+  it('hydrates local adhoc from family cloud when local is empty', async () => {
+    vi.spyOn(firestore, 'subscribeCollection').mockImplementation((path, onData) => {
+      if (path === FAMILY_TASKS) {
+        onData([]);
+      } else if (path === FAMILY_ADHOC) {
+        onData([
+          {
+            id: 'cloud-adhoc',
+            title: '雲端臨時',
+            date: DATE,
+            createdAt: 0,
+          },
+        ]);
+      } else {
+        onData([]);
+      }
+      return vi.fn();
+    });
+
+    const { result } = renderHook(() => useAdhoc(DATE), { wrapper });
+    await waitFor(() => expect(result.current.sync.ready).toBe(true));
+    expect(result.current.adhocToday.map((item) => item.id)).toEqual(['cloud-adhoc']);
   });
 });

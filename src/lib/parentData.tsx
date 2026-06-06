@@ -327,7 +327,11 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
       (items) => {
         cloudSnap.adhoc = items;
         loaded.adhoc = true;
-        finishInitialSync();
+        if (initialSyncDoneRef.current) {
+          localAdhoc.setAll(items);
+        } else {
+          finishInitialSync();
+        }
       },
       (err) => {
         setAdhocError(firestoreReadError('臨時任務', err));
