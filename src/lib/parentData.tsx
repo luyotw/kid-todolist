@@ -285,6 +285,9 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
             setSettingsError(msg);
           },
         );
+        // Local-first push keeps tasks/completions/settings; still mirror cloud adhoc
+        // so temp tasks from other devices appear after refresh.
+        localAdhoc.setAll(cloudSnap.adhoc);
       }
       setCloudSyncReady(true);
     };
@@ -327,10 +330,11 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
       (items) => {
         cloudSnap.adhoc = items;
         loaded.adhoc = true;
+        if (!initialSyncDoneRef.current) {
+          finishInitialSync();
+        }
         if (initialSyncDoneRef.current) {
           localAdhoc.setAll(items);
-        } else {
-          finishInitialSync();
         }
       },
       (err) => {

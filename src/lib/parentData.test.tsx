@@ -308,6 +308,87 @@ describe('parentData adhoc cloud subscription updates', () => {
       expect(result.current.adhocToday.map((item) => item.id)).toEqual(['local-1']),
     );
   });
+
+  it('hydrates cloud adhoc on initial sync when local has tasks but empty adhoc', async () => {
+    window.localStorage.setItem(
+      'kid-todolist:tasks:v1',
+      JSON.stringify([
+        {
+          id: 'local-task',
+          title: '本機任務',
+          weekdays: [0, 1, 2, 3, 4, 5, 6],
+          createdAt: 0,
+        },
+      ]),
+    );
+    window.localStorage.setItem('kid-todolist:adhoc:v1', JSON.stringify([]));
+
+    mockAdhocSubscription([
+      {
+        id: 'remote-1',
+        title: '另一台裝置加的',
+        date: DATE,
+        createdAt: 1,
+      },
+    ]);
+
+    const { result } = renderHook(() => useAdhoc(DATE), { wrapper });
+    await waitFor(() => expect(result.current.sync.ready).toBe(true));
+    expect(result.current.adhocToday.map((item) => item.id)).toEqual(['remote-1']);
+  });
+
+  it('hydrates cloud adhoc when adhoc snapshot arrives before initial sync completes', async () => {
+    window.localStorage.setItem(
+      'kid-todolist:tasks:v1',
+      JSON.stringify([
+        {
+          id: 'local-task',
+          title: '本機任務',
+          weekdays: [0, 1, 2, 3, 4, 5, 6],
+          createdAt: 0,
+        },
+      ]),
+    );
+    window.localStorage.setItem('kid-todolist:adhoc:v1', JSON.stringify([]));
+
+    const cloudAdhoc: AdhocTask[] = [
+      {
+        id: 'remote-early',
+        title: '早到的雲端臨時',
+        date: DATE,
+        createdAt: 1,
+      },
+    ];
+    let tasksOnData: (items: unknown[]) => void = () => {};
+
+    vi.spyOn(firestore, 'subscribeDoc').mockImplementation((_path, onData) => {
+      onData(null);
+      return vi.fn();
+    });
+    vi.spyOn(firestore, 'writeDoc').mockResolvedValue(undefined);
+    vi.spyOn(firestore, 'writeSingleton').mockResolvedValue(undefined);
+    vi.spyOn(firestore, 'removeDoc').mockResolvedValue(undefined);
+    vi.spyOn(firestore, 'subscribeCollection').mockImplementation((path, onData) => {
+      if (path === FAMILY_ADHOC) {
+        onData(cloudAdhoc);
+      } else if (path === FAMILY_TASKS) {
+        tasksOnData = onData as typeof tasksOnData;
+      } else {
+        onData([]);
+      }
+      return vi.fn();
+    });
+
+    const { result } = renderHook(() => useAdhoc(DATE), { wrapper });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    act(() => {
+      tasksOnData([]);
+    });
+    await waitFor(() => expect(result.current.sync.ready).toBe(true));
+    expect(result.current.adhocToday.map((item) => item.id)).toEqual(['remote-early']);
+  });
 });
 
 describe('useAdhoc cloud mode', () => {
