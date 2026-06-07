@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import SortableList from '../components/SortableList';
 import { useTasks } from '../lib/useTasks';
 import { getTaskPoints } from '../lib/points';
 import {
@@ -20,11 +21,21 @@ const WEEKDAY_LABELS: Record<Weekday, string> = {
 };
 
 export default function TasksPage() {
-  const { tasks, create, update, remove } = useTasks();
+  const { tasks, create, update, remove, reorder } = useTasks();
   const [newTitle, setNewTitle] = useState('');
   const [newWeekdays, setNewWeekdays] = useState<Weekday[]>(ALL_WEEKDAYS);
   const [newPoints, setNewPoints] = useState(1);
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  const sortableItems = useMemo(
+    () => tasks.map((task) => ({ key: task.id, label: task.title })),
+    [tasks],
+  );
+
+  const taskById = useMemo(
+    () => new Map(tasks.map((task) => [task.id, task])),
+    [tasks],
+  );
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,24 +77,36 @@ export default function TasksPage() {
       {tasks.length === 0 ? (
         <p className="empty">還沒設定任務。在上面加一個吧。</p>
       ) : (
-        <ul className="task-list">
-          {tasks.map((task) => (
-            <TaskRow
-              key={task.id}
-              task={task}
-              editing={editingId === task.id}
-              onStartEdit={() => setEditingId(task.id)}
-              onCancelEdit={() => setEditingId(null)}
-              onSave={(title, weekdays, points) => {
-                update(task.id, { title, weekdays, points });
-                setEditingId(null);
-              }}
-              onDelete={() => {
-                if (confirm(`刪掉「${task.title}」？`)) remove(task.id);
-              }}
-            />
-          ))}
-        </ul>
+        <>
+          <p className="tasks-order-hint">
+            此為每天預設順序；單日調整請至「今天」。
+          </p>
+          <SortableList
+            items={sortableItems}
+            onReorder={reorder}
+            listClassName="task-list"
+            itemClassName="task-row"
+            renderItem={(item) => {
+              const task = taskById.get(item.key);
+              if (!task) return null;
+              return (
+                <TaskRow
+                  task={task}
+                  editing={editingId === task.id}
+                  onStartEdit={() => setEditingId(task.id)}
+                  onCancelEdit={() => setEditingId(null)}
+                  onSave={(title, weekdays, points) => {
+                    update(task.id, { title, weekdays, points });
+                    setEditingId(null);
+                  }}
+                  onDelete={() => {
+                    if (confirm(`刪掉「${task.title}」？`)) remove(task.id);
+                  }}
+                />
+              );
+            }}
+          />
+        </>
       )}
     </div>
   );
@@ -112,7 +135,7 @@ function TaskRow({
 
   if (editing) {
     return (
-      <li className="task-row task-row--editing">
+      <div className="task-row__body task-row--editing">
         <input
           aria-label="編輯任務"
           value={draftTitle}
@@ -150,12 +173,12 @@ function TaskRow({
             取消
           </button>
         </div>
-      </li>
+      </div>
     );
   }
 
   return (
-    <li className="task-row">
+    <div className="task-row__body">
       <span className="task-title">{task.title}</span>
       <span className="task-points" aria-label="點數">
         {getTaskPoints(task)} 點
@@ -169,7 +192,7 @@ function TaskRow({
       <button type="button" aria-label={`刪除 ${task.title}`} onClick={onDelete}>
         刪除
       </button>
-    </li>
+    </div>
   );
 }
 

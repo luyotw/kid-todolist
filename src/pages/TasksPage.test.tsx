@@ -50,6 +50,33 @@ describe('TasksPage', () => {
     expect(screen.getAllByLabelText('排程')[0]).toHaveTextContent('上學日');
   });
 
+  it('shows default order hint when tasks exist', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<TasksPage />);
+    await user.type(screen.getByLabelText('新任務'), '刷牙');
+    await user.click(screen.getByRole('button', { name: '加' }));
+    expect(
+      screen.getByText(/此為每天預設順序；單日調整請至「今天」/),
+    ).toBeInTheDocument();
+  });
+
+  it('persists task order across remount', async () => {
+    const user = userEvent.setup();
+    const { unmount } = renderWithProviders(<TasksPage />);
+    await user.type(screen.getByLabelText('新任務'), '先');
+    await user.click(screen.getByRole('button', { name: '加' }));
+    await user.type(screen.getByLabelText('新任務'), '後');
+    await user.click(screen.getByRole('button', { name: '加' }));
+
+    const titles = screen.getAllByText(/^(先|後)$/);
+    expect(titles.map((el) => el.textContent)).toEqual(['先', '後']);
+
+    unmount();
+    renderWithProviders(<TasksPage />);
+    const restored = screen.getAllByText(/^(先|後)$/);
+    expect(restored.map((el) => el.textContent)).toEqual(['先', '後']);
+  });
+
   it('persists tasks across remount', async () => {
     const user = userEvent.setup();
     const { unmount } = renderWithProviders(<TasksPage />);
