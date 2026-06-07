@@ -42,6 +42,17 @@ import {
   deleteTask as deleteTaskPure,
   updateTask as updateTaskPure,
 } from './tasks';
+import {
+  appendAdhocToDayOrderIfOverride,
+  appendTaskToGlobalOrder,
+  clearDayOrder,
+  hasDayOverride,
+  removeTaskFromOrders,
+  setDayOrder,
+  sortTasksByGlobalOrder,
+  type DayOrders,
+  type OrderedItemKey,
+} from './taskOrder';
 import { storage } from './storage';
 import {
   createReward as createRewardPure,
@@ -84,6 +95,8 @@ interface SettingsDoc {
   pointsBalance?: number;
   rewardText?: string;
   rewardCost?: number;
+  taskOrder?: string[];
+  dayOrders?: DayOrders;
 }
 
 function settingsFromDoc(data: SettingsDoc | null): ParentSettings {
@@ -94,6 +107,8 @@ function settingsFromDoc(data: SettingsDoc | null): ParentSettings {
     pointsBalance: data.pointsBalance,
     rewardText: data.rewardText,
     rewardCost: data.rewardCost,
+    taskOrder: data.taskOrder,
+    dayOrders: data.dayOrders,
   });
 }
 
@@ -102,6 +117,8 @@ function settingsToDoc(settings: ParentSettings): SettingsDoc {
     completionMessage: settings.completionMessage,
     rewards: settings.rewards,
     pointsBalance: settings.pointsBalance,
+    ...(settings.taskOrder ? { taskOrder: settings.taskOrder } : {}),
+    ...(settings.dayOrders ? { dayOrders: settings.dayOrders } : {}),
   };
 }
 
@@ -157,6 +174,12 @@ interface ParentDataContextValue {
   redeemReward: (id: string) => RedemptionResult;
   defaultCompletionMessage: string;
   sync: CloudSyncMeta;
+  taskOrder: string[];
+  dayOrders: DayOrders;
+  reorderGlobalTasks: (orderedIds: string[]) => void;
+  reorderToday: (dateStr: string, keys: OrderedItemKey[]) => void;
+  restoreDefaultTodayOrder: (dateStr: string) => void;
+  hasTodayOrderOverride: (dateStr: string) => boolean;
 }
 
 const ParentDataContext = createContext<ParentDataContextValue | null>(null);
@@ -443,6 +466,10 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
       const created = next[next.length - 1];
       if (!created || next.length === tasks.length) return;
       localTasks.setTasks(next);
+      persistSettings({
+        ...settings,
+        taskOrder: appendTaskToGlobalOrder(settings.taskOrder, created.id),
+      });
       if (cloudMode) {
         void runCloudWrite(
           () => writeDoc(syncTarget.paths.tasks, created.id, taskToFirestore(created)),
@@ -450,7 +477,7 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
         );
       }
     },
-    [cloudMode, syncTarget.paths, tasks, localTasks, setTasksErrorMsg],
+    [cloudMode, syncTarget.paths, tasks, settings, localTasks, persistSettings, setTasksErrorMsg],
   );
 
   const updateTask = useCallback(
@@ -472,6 +499,18 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
   const removeTask = useCallback(
     (id: string) => {
       localTasks.setTasks((prev) => deleteTaskPure(prev, id));
+      const { taskOrder, dayOrders } = removeTaskFromOrders(
+        id,
+        settings.taskOrder,
+        settings.dayOrders,
+      );
+      persistSettings({
+        ...settings,
+        ...(taskOrder.length > 0 ? { taskOrder } : { taskOrder: undefined }),
+        ...(Object.keys(dayOrders).length > 0
+          ? { dayOrders }
+          : { dayOrders: undefined }),
+      });
       if (cloudMode) {
         void runCloudWrite(
           () => removeDoc(syncTarget.paths.tasks, id),
@@ -479,7 +518,7 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
         );
       }
     },
-    [cloudMode, uid, localTasks, setTasksErrorMsg],
+    [cloudMode, settings, localTasks, persistSettings, setTasksErrorMsg, syncTarget.paths.tasks],
   );
 
   const setCompletionsErrorMsg = useCallback((msg: string) => {
@@ -560,6 +599,18 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
       const created = next[next.length - 1];
       if (!created || next.length === allAdhoc.length) return;
       localAdhoc.setAll(next);
+      const dayOrders = appendAdhocToDayOrderIfOverride(
+        settings.dayOrders,
+        dateStr,
+        created.id,
+      );
+      if (dayOrders !== settings.dayOrders) {
+        persistSettings({
+          ...settings,
+          dayOrders:
+            Object.keys(dayOrders).length > 0 ? dayOrders : undefined,
+        });
+      }
       if (cloudMode) {
         void runCloudWrite(
           () =>
@@ -572,7 +623,7 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
         );
       }
     },
-    [cloudMode, syncTarget.paths, allAdhoc, localAdhoc, setAdhocErrorMsg],
+    [cloudMode, syncTarget.paths, allAdhoc, settings, localAdhoc, persistSettings, setAdhocErrorMsg],
   );
 
   const removeAdhocItem = useCallback(
@@ -625,6 +676,46 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
     [settings, persistSettings],
   );
 
+  const taskOrder = settings.taskOrder ?? [];
+  const dayOrders = settings.dayOrders ?? {};
+
+  const reorderGlobalTasks = useCallback(
+    (orderedIds: string[]) => {
+      persistSettings({
+        ...settings,
+        taskOrder: orderedIds,
+      });
+    },
+    [settings, persistSettings],
+  );
+
+  const reorderToday = useCallback(
+    (dateStr: string, keys: OrderedItemKey[]) => {
+      persistSettings({
+        ...settings,
+        dayOrders: setDayOrder(settings.dayOrders, dateStr, keys),
+      });
+    },
+    [settings, persistSettings],
+  );
+
+  const restoreDefaultTodayOrder = useCallback(
+    (dateStr: string) => {
+      const nextDayOrders = clearDayOrder(settings.dayOrders, dateStr);
+      persistSettings({
+        ...settings,
+        dayOrders:
+          Object.keys(nextDayOrders).length > 0 ? nextDayOrders : undefined,
+      });
+    },
+    [settings, persistSettings],
+  );
+
+  const hasTodayOrderOverride = useCallback(
+    (dateStr: string) => hasDayOverride(settings.dayOrders, dateStr),
+    [settings.dayOrders],
+  );
+
   const redeemReward = useCallback(
     (id: string): RedemptionResult => {
       const reward = findReward(settings.rewards, id);
@@ -665,6 +756,12 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
       redeemReward,
       defaultCompletionMessage: DEFAULT_COMPLETION_MESSAGE,
       sync,
+      taskOrder,
+      dayOrders,
+      reorderGlobalTasks,
+      reorderToday,
+      restoreDefaultTodayOrder,
+      hasTodayOrderOverride,
     }),
     [
       tasks,
@@ -689,6 +786,12 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
       removeReward,
       redeemReward,
       sync,
+      taskOrder,
+      dayOrders,
+      reorderGlobalTasks,
+      reorderToday,
+      restoreDefaultTodayOrder,
+      hasTodayOrderOverride,
     ],
   );
 
@@ -718,13 +821,39 @@ export function useTasks() {
     createTask,
     updateTask,
     removeTask,
+    taskOrder,
+    reorderGlobalTasks,
   } = useParentData();
+  const orderedTasks = useMemo(
+    () => sortTasksByGlobalOrder(tasks, taskOrder),
+    [tasks, taskOrder],
+  );
   return {
-    tasks,
+    tasks: orderedTasks,
+    allTasks: tasks,
+    taskOrder,
     create: createTask,
     update: updateTask,
     remove: removeTask,
+    reorder: reorderGlobalTasks,
     sync: tasksSync,
+  };
+}
+
+export function useTaskOrder(dateStr: string) {
+  const {
+    taskOrder,
+    dayOrders,
+    reorderToday,
+    restoreDefaultTodayOrder,
+    hasTodayOrderOverride,
+  } = useParentData();
+  return {
+    taskOrder,
+    dayOrders,
+    reorderToday,
+    restoreDefaultTodayOrder,
+    hasOverride: hasTodayOrderOverride(dateStr),
   };
 }
 

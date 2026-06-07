@@ -95,6 +95,8 @@ interface SettingsDoc {
   pointsBalance?: number;
   rewardText?: string;
   rewardCost?: number;
+  taskOrder?: string[];
+  dayOrders?: ParentSettings['dayOrders'];
 }
 
 interface CompletionDay {
@@ -121,6 +123,8 @@ function settingsToDoc(settings: ParentSettings) {
       createdAt,
     })),
     pointsBalance: settings.pointsBalance,
+    ...(settings.taskOrder ? { taskOrder: settings.taskOrder } : {}),
+    ...(settings.dayOrders ? { dayOrders: settings.dayOrders } : {}),
   };
 }
 
@@ -132,6 +136,8 @@ function settingsFromDoc(data: SettingsDoc | null): ParentSettings {
     pointsBalance: data.pointsBalance,
     rewardText: data.rewardText,
     rewardCost: data.rewardCost,
+    taskOrder: data.taskOrder,
+    dayOrders: data.dayOrders,
   });
 }
 
