@@ -2,6 +2,11 @@ import { newId } from './ids';
 import type { RewardItem } from '../types';
 import { normalizeRewards } from './rewards';
 import { storage } from './storage';
+import {
+  normalizeDayOrders,
+  normalizeTaskOrder,
+  type DayOrders,
+} from './taskOrder';
 
 export type { RewardItem };
 
@@ -19,12 +24,18 @@ export interface ParentSettings {
   /** Redeemable rewards (橡實-style catalog). */
   rewards: RewardItem[];
   pointsBalance: number;
+  /** Global fixed-task display order (task ids). */
+  taskOrder?: string[];
+  /** Per-day Today list overrides (YYYY-MM-DD → ordered keys). */
+  dayOrders?: DayOrders;
 }
 
 type SettingsInput = Partial<ParentSettings> & {
   rewardText?: string;
   rewardCost?: number;
   rewards?: unknown;
+  taskOrder?: unknown;
+  dayOrders?: unknown;
 };
 
 function legacyRewardsFromInput(raw: SettingsInput): RewardItem[] {
@@ -50,6 +61,9 @@ export function normalizeSettings(raw?: SettingsInput | null): ParentSettings {
         ? raw.rewardText
         : DEFAULT_COMPLETION_MESSAGE;
 
+  const taskOrder = normalizeTaskOrder(raw?.taskOrder);
+  const dayOrders = normalizeDayOrders(raw?.dayOrders);
+
   return {
     completionMessage,
     rewards: legacyRewardsFromInput(raw ?? {}),
@@ -57,6 +71,8 @@ export function normalizeSettings(raw?: SettingsInput | null): ParentSettings {
       raw?.pointsBalance !== undefined && raw.pointsBalance >= 0
         ? Math.floor(raw.pointsBalance)
         : DEFAULT_POINTS_BALANCE,
+    ...(taskOrder ? { taskOrder } : {}),
+    ...(dayOrders ? { dayOrders } : {}),
   };
 }
 
