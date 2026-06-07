@@ -1,5 +1,9 @@
 import type { AdhocTask, Task } from '../types';
 import { isTaskScheduledOn } from './schedule';
+import {
+  buildOrderedTodayItems,
+  type DayOrders,
+} from './taskOrder';
 
 export interface TodayItem {
   // Stable id used for completion tracking & React keys.
@@ -29,15 +33,17 @@ export function buildTodayItems(
   adhoc: AdhocTask[],
   completedIds: ReadonlySet<string>,
   date: Date,
+  taskOrder?: string[],
+  dayOrders?: DayOrders,
 ): TodayItem[] {
-  const scheduled = getTodayTasks(tasks, completedIds, date);
-  const adhocItems: TodayItem[] = adhoc.map((a) => ({
-    id: a.id,
-    title: a.title,
-    completed: completedIds.has(a.id),
-    source: 'adhoc',
-  }));
-  return [...scheduled, ...adhocItems];
+  return buildOrderedTodayItems(
+    tasks,
+    adhoc,
+    completedIds,
+    date,
+    taskOrder,
+    dayOrders,
+  );
 }
 
 export function countProgress(items: TodayItem[]): {
