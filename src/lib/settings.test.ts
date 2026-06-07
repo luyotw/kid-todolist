@@ -54,6 +54,27 @@ describe('normalizeSettings', () => {
       '',
     );
   });
+
+  it('preserves taskOrder and dayOrders when present', () => {
+    expect(
+      normalizeSettings({
+        taskOrder: ['a', 'b'],
+        dayOrders: {
+          '2026-01-05': [{ source: 'task', id: 'a' }],
+        },
+      }),
+    ).toMatchObject({
+      taskOrder: ['a', 'b'],
+      dayOrders: {
+        '2026-01-05': [{ source: 'task', id: 'a' }],
+      },
+    });
+  });
+
+  it('works without taskOrder or dayOrders for backward compatibility', () => {
+    expect(normalizeSettings(null)).not.toHaveProperty('taskOrder');
+    expect(normalizeSettings(null)).not.toHaveProperty('dayOrders');
+  });
 });
 
 describe('loadLocalSettings', () => {
