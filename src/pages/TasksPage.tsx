@@ -79,7 +79,7 @@ export default function TasksPage() {
       ) : (
         <>
           <p className="tasks-order-hint">
-            此為每天預設順序；單日調整請至「今天」。
+            長按左側 ⋮⋮ 拖曳調整每天預設順序；單日調整請至「今天」。
           </p>
           <SortableList
             items={sortableItems}

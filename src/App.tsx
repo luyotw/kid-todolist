@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faRefresh, faSignOut } from '@fortawesome/free-solid-svg-icons';
 import { AuthProvider, useAuth } from './lib/auth';
 import {
   ParentDataProvider,
@@ -17,6 +19,7 @@ import {
   useFamilyMembership,
 } from './lib/family';
 import { useOnlineStatus } from './lib/cloudSync';
+import { reloadApp } from './lib/pwa/standalone';
 import LoginScreen from './pages/LoginScreen';
 import SettingsPage from './pages/SettingsPage';
 import TasksPage from './pages/TasksPage';
@@ -168,13 +171,24 @@ function AppShell() {
           )}
         </div>
         {configured && (user || isGuest) && (
-          <button
-            type="button"
-            className="app-header__signout"
-            onClick={() => setConfirmSignOut(true)}
-          >
-            登出
-          </button>
+          <div className="app-header__actions">
+            <button
+              type="button"
+              className="app-header__refresh"
+              aria-label="重新整理"
+              onClick={() => reloadApp()}
+            >
+              <FontAwesomeIcon icon={faRefresh} aria-hidden />
+            </button>
+            <button
+              type="button"
+              className="app-header__signout"
+              aria-label="登出"
+              onClick={() => setConfirmSignOut(true)}
+            >
+              <FontAwesomeIcon icon={faSignOut} aria-hidden />
+            </button>
+          </div>
         )}
       </header>
 

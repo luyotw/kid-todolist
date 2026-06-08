@@ -56,7 +56,7 @@ describe('TasksPage', () => {
     await user.type(screen.getByLabelText('新任務'), '刷牙');
     await user.click(screen.getByRole('button', { name: '加' }));
     expect(
-      screen.getByText(/此為每天預設順序；單日調整請至「今天」/),
+      screen.getByText(/長按左側 ⋮⋮ 拖曳調整每天預設順序；單日調整請至「今天」/),
     ).toBeInTheDocument();
   });
 

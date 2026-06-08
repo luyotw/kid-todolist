@@ -2,6 +2,9 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
 
+const { reloadApp } = vi.hoisted(() => ({
+  reloadApp: vi.fn(),
+}));
 const signOutUser = vi.fn();
 
 let mockUser: {
@@ -39,6 +42,10 @@ vi.mock('./lib/auth', () => ({
   }),
 }));
 
+vi.mock('./lib/pwa/standalone', () => ({
+  reloadApp: () => reloadApp(),
+}));
+
 vi.mock('./lib/firestore', () => ({
   paths: {
     tasks: (uid: string) => `users/${uid}/tasks`,
@@ -68,6 +75,7 @@ describe('App sign-out confirmation', () => {
       email: 'a@example.com',
     };
     signOutUser.mockClear();
+    reloadApp.mockClear();
   });
 
   it('keeps the user signed in when sign-out is cancelled', () => {
@@ -81,6 +89,15 @@ describe('App sign-out confirmation', () => {
     fireEvent.click(screen.getByRole('button', { name: '取消' }));
     expect(signOutUser).not.toHaveBeenCalled();
     expect(screen.getByRole('navigation', { name: '主要導覽' })).toBeInTheDocument();
+  });
+
+  it('shows a persistent icon-only reload button in the header', () => {
+    render(<App />);
+
+    const button = screen.getByRole('button', { name: '重新整理' });
+    expect(button).toBeInTheDocument();
+    fireEvent.click(button);
+    expect(reloadApp).toHaveBeenCalled();
   });
 
   it('signs out and shows login screen when confirmed', () => {
