@@ -24,7 +24,7 @@ export default function TasksPage() {
   const { tasks, create, update, remove, reorder } = useTasks();
   const [newTitle, setNewTitle] = useState('');
   const [newWeekdays, setNewWeekdays] = useState<Weekday[]>(ALL_WEEKDAYS);
-  const [newPoints, setNewPoints] = useState(1);
+  const [newPoints, setNewPoints] = useState(0);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const sortableItems = useMemo(
@@ -43,7 +43,7 @@ export default function TasksPage() {
     create(newTitle, newWeekdays, newPoints);
     setNewTitle('');
     setNewWeekdays(ALL_WEEKDAYS);
-    setNewPoints(1);
+    setNewPoints(0);
   };
 
   return (
@@ -59,7 +59,7 @@ export default function TasksPage() {
           <span>點數</span>
           <input
             type="number"
-            min={1}
+            min={0}
             aria-label="新任務點數"
             value={newPoints}
             onChange={(e) => setNewPoints(Number(e.target.value))}
@@ -146,7 +146,7 @@ function TaskRow({
           <span>點數</span>
           <input
             type="number"
-            min={1}
+            min={0}
             aria-label="編輯任務點數"
             value={draftPoints}
             onChange={(e) => setDraftPoints(Number(e.target.value))}

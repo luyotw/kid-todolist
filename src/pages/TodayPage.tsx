@@ -66,11 +66,13 @@ export default function TodayPage() {
   );
 
   const [adhocDraft, setAdhocDraft] = useState('');
+  const [adhocPoints, setAdhocPoints] = useState(0);
   const handleAddAdhoc = (e: React.FormEvent) => {
     e.preventDefault();
     if (!adhocDraft.trim()) return;
-    addAdhoc(adhocDraft);
+    addAdhoc(adhocDraft, adhocPoints);
     setAdhocDraft('');
+    setAdhocPoints(0);
   };
 
   return (
@@ -116,12 +118,15 @@ export default function TodayPage() {
                     aria-label={row.title}
                   />
                   <span className="today-row__title">{row.title}</span>
-                  {row.source === 'task' && (() => {
-                    const task = tasks.find((t) => t.id === row.id);
-                    if (!task) return null;
+                  {(() => {
+                    const pointSource =
+                      row.source === 'task'
+                        ? tasks.find((t) => t.id === row.id)
+                        : adhocToday.find((item) => item.id === row.id);
+                    if (!pointSource) return null;
                     return (
                       <span className="today-row__points">
-                        {getTaskPoints(task)} 點
+                        {getTaskPoints(pointSource)} 點
                       </span>
                     );
                   })()}
@@ -147,11 +152,22 @@ export default function TodayPage() {
 
       <form className="adhoc-add" onSubmit={handleAddAdhoc}>
         <input
+          className="adhoc-add__title"
           aria-label="臨時加一個今天的任務"
           placeholder="臨時加一個今天的任務"
           value={adhocDraft}
           onChange={(e) => setAdhocDraft(e.target.value)}
         />
+        <label className="adhoc-add__points">
+          <span>點數</span>
+          <input
+            type="number"
+            min={0}
+            aria-label="臨時任務點數"
+            value={adhocPoints}
+            onChange={(e) => setAdhocPoints(Number(e.target.value))}
+          />
+        </label>
         <button type="submit" disabled={!adhocDraft.trim()}>
           加
         </button>

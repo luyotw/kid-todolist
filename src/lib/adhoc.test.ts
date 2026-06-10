@@ -11,9 +11,18 @@ const seed: AdhocTask = {
 
 describe('createAdhoc', () => {
   it('adds a one-off task tagged to the given date', () => {
-    const result = createAdhoc([], '  寄包裹  ', '2026-01-06');
+    const result = createAdhoc([], '  寄包裹  ', '2026-01-06', 2);
     expect(result).toHaveLength(1);
-    expect(result[0]).toMatchObject({ title: '寄包裹', date: '2026-01-06' });
+    expect(result[0]).toMatchObject({
+      title: '寄包裹',
+      date: '2026-01-06',
+      points: 2,
+    });
+  });
+
+  it('allows zero-point one-off tasks', () => {
+    const result = createAdhoc([], '澆花', '2026-01-06', 0);
+    expect(result[0].points).toBe(0);
   });
 
   it('ignores empty titles', () => {

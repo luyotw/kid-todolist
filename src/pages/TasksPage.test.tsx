@@ -106,4 +106,16 @@ describe('TasksPage', () => {
 
     expect(screen.getByText('5 點')).toBeInTheDocument();
   });
+
+  it('creates tasks with zero points', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<TasksPage />);
+
+    await user.type(screen.getByLabelText('新任務'), '不用加點');
+    await user.clear(screen.getByLabelText('新任務點數'));
+    await user.type(screen.getByLabelText('新任務點數'), '0');
+    await user.click(screen.getByRole('button', { name: '加' }));
+
+    expect(screen.getByText('0 點')).toBeInTheDocument();
+  });
 });

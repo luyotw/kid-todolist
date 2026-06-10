@@ -1,13 +1,13 @@
 import type { AdhocTask, Task } from '../types';
 
-export const DEFAULT_TASK_POINTS = 1;
+export const DEFAULT_TASK_POINTS = 0;
 
 export function normalizeTaskPoints(points: number): number {
-  if (!Number.isFinite(points) || points < 1) return DEFAULT_TASK_POINTS;
+  if (!Number.isFinite(points) || points < 0) return DEFAULT_TASK_POINTS;
   return Math.floor(points);
 }
 
-export function getTaskPoints(task: Pick<Task, 'points'>): number {
+export function getTaskPoints(task: Pick<Task | AdhocTask, 'points'>): number {
   if (task.points === undefined) return DEFAULT_TASK_POINTS;
   return normalizeTaskPoints(task.points);
 }

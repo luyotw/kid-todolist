@@ -18,12 +18,16 @@ const task = (id: string, points?: number): Task => ({
 });
 
 describe('getTaskPoints', () => {
-  it('defaults missing points to 1', () => {
-    expect(getTaskPoints(task('a'))).toBe(1);
+  it('defaults missing points to 0', () => {
+    expect(getTaskPoints(task('a'))).toBe(0);
   });
 
   it('uses explicit points', () => {
     expect(getTaskPoints(task('a', 3))).toBe(3);
+  });
+
+  it('allows zero points', () => {
+    expect(getTaskPoints(task('a', 0))).toBe(0);
   });
 });
 

@@ -464,6 +464,20 @@ describe('useAdhoc cloud mode', () => {
       '今天的事',
     ]);
   });
+
+  it('writes points when adding an adhoc item', async () => {
+    const { result } = renderHook(() => useAdhoc('2026-01-05'), { wrapper });
+    await waitFor(() => expect(result.current.sync.ready).toBe(true));
+
+    act(() => result.current.add('倒垃圾', 0));
+
+    await waitFor(() => expect(firestore.writeDoc).toHaveBeenCalled());
+    expect(firestore.writeDoc).toHaveBeenCalledWith(
+      FAMILY_ADHOC,
+      expect.any(String),
+      expect.objectContaining({ title: '倒垃圾', points: 0 }),
+    );
+  });
 });
 
 describe('usePoints cloud mode — scheduled toggle credits balance', () => {
@@ -587,7 +601,7 @@ describe('usePoints cloud mode — uncheck debits with floor', () => {
   });
 });
 
-describe('usePoints cloud mode — adhoc toggle no points', () => {
+describe('usePoints cloud mode — adhoc toggle credits balance', () => {
   beforeEach(() => {
     membershipState.membership = { ...FAMILY_MEMBERSHIP };
     membershipState.loading = false;
@@ -610,6 +624,7 @@ describe('usePoints cloud mode — adhoc toggle no points', () => {
             title: '臨時',
             date: '2026-01-05',
             createdAt: 0,
+            points: 4,
           },
         ]);
       } else {
@@ -619,7 +634,7 @@ describe('usePoints cloud mode — adhoc toggle no points', () => {
     });
   });
 
-  it('does not change balance when toggling adhoc tasks', async () => {
+  it('credits balance when toggling adhoc tasks', async () => {
     const { result } = renderHook(
       () => ({
         points: usePoints(),
@@ -635,8 +650,11 @@ describe('usePoints cloud mode — adhoc toggle no points', () => {
     await waitFor(() =>
       expect(result.current.completions.completedIds.has('adhoc-1')).toBe(true),
     );
-    expect(result.current.points.balance).toBe(2);
-    expect(firestore.writeSingleton).not.toHaveBeenCalled();
+    expect(result.current.points.balance).toBe(6);
+    expect(firestore.writeSingleton).toHaveBeenCalledWith(
+      FAMILY_SETTINGS,
+      expect.objectContaining({ pointsBalance: 6 }),
+    );
   });
 });
 

@@ -72,7 +72,6 @@ import {
   applyCompletionDelta,
   applyRedemption,
   getTaskPoints,
-  isScheduledTaskId,
   type RedemptionResult,
 } from './points';
 
@@ -172,7 +171,7 @@ interface ParentDataContextValue {
   toggleCompletion: (dateStr: string, taskId: string) => void;
   allAdhoc: AdhocTask[];
   adhocSync: CloudSyncMeta;
-  addAdhoc: (title: string, dateStr: string) => void;
+  addAdhoc: (title: string, dateStr: string, points?: number) => void;
   removeAdhoc: (id: string) => void;
   completionMessage: string;
   rewards: RewardItem[];
@@ -556,10 +555,10 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
     (dateStr: string, taskId: string) => {
       const wasCompleted = (allCompletions[dateStr] ?? []).includes(taskId);
       const completing = !wasCompleted;
-      const scheduledTask = tasks.find((t) => t.id === taskId);
-      const affectsPoints =
-        scheduledTask &&
-        isScheduledTaskId(tasks, allAdhoc, taskId);
+      const completionItem =
+        tasks.find((t) => t.id === taskId) ??
+        allAdhoc.find((item) => item.id === taskId);
+      const affectsPoints = Boolean(completionItem);
 
       const applyCompletions = (prev: StoredCompletions) => {
         const current = new Set(prev[dateStr] ?? []);
@@ -569,12 +568,12 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
       };
 
       const applyPoints = (prev: ParentSettings): ParentSettings => {
-        if (!affectsPoints || !scheduledTask) return prev;
+        if (!affectsPoints || !completionItem) return prev;
         return {
           ...prev,
           pointsBalance: applyCompletionDelta(
             prev.pointsBalance,
-            getTaskPoints(scheduledTask),
+            getTaskPoints(completionItem),
             completing,
           ),
         };
@@ -621,8 +620,8 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addAdhoc = useCallback(
-    (title: string, dateStr: string) => {
-      const next = createAdhocPure(allAdhoc, title, dateStr);
+    (title: string, dateStr: string, points?: number) => {
+      const next = createAdhocPure(allAdhoc, title, dateStr, points);
       const created = next[next.length - 1];
       if (!created || next.length === allAdhoc.length) return;
       localAdhoc.setAll(next);
@@ -645,6 +644,7 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
               title: created.title,
               date: created.date,
               createdAt: created.createdAt,
+              ...(created.points !== undefined ? { points: created.points } : {}),
             }),
           setAdhocErrorMsg,
         );
@@ -905,7 +905,7 @@ export function useAdhoc(dateStr: string) {
     [allAdhoc, dateStr],
   );
   const add = useCallback(
-    (title: string) => addAdhoc(title, dateStr),
+    (title: string, points?: number) => addAdhoc(title, dateStr, points),
     [addAdhoc, dateStr],
   );
   return { adhocToday, add, remove: removeAdhoc, sync: adhocSync };

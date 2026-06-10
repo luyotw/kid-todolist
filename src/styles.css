@@ -951,6 +951,7 @@ body {
 .adhoc-add {
   display: flex;
   gap: 8px;
+  align-items: stretch;
   margin-top: 16px;
   padding: 12px;
   background: var(--card);
@@ -958,8 +959,9 @@ body {
   border-radius: 12px;
 }
 
-.adhoc-add input {
+.adhoc-add__title {
   flex: 1;
+  min-width: 0;
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -967,7 +969,30 @@ body {
   background: #fff;
 }
 
+.adhoc-add__points {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.adhoc-add__points input {
+  width: 44px;
+  border: 0;
+  padding: 10px 0;
+  font-size: 15px;
+  background: transparent;
+}
+
 .adhoc-add button {
+  flex: 0 0 auto;
+  min-width: 46px;
   padding: 10px 16px;
   border: 1px solid var(--border);
   border-radius: 8px;

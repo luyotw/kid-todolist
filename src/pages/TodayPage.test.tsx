@@ -111,6 +111,23 @@ describe('TodayPage', () => {
     expect(screen.getByText('今天 0 / 1 完成')).toBeInTheDocument();
   });
 
+  it('adds a one-off task with custom points', () => {
+    freezeDate('2026-01-05T08:00:00');
+    seedTasks([]);
+    renderWithProviders(<TodayPage />);
+
+    fireEvent.change(screen.getByLabelText('臨時加一個今天的任務'), {
+      target: { value: '倒垃圾' },
+    });
+    fireEvent.change(screen.getByLabelText('臨時任務點數'), {
+      target: { value: '4' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '加' }));
+
+    expect(screen.getByText('倒垃圾')).toBeInTheDocument();
+    expect(screen.getByText('4 點')).toBeInTheDocument();
+  });
+
   it('shows custom reward text when set, otherwise falls back to default', () => {
     freezeDate('2026-01-05T08:00:00');
     seedTasks([everyday('a', '刷牙')]);

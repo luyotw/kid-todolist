@@ -19,6 +19,8 @@ export interface AdhocTask {
   title: string;
   date: string;
   createdAt: number;
+  /** Completion points; omitted or undefined means 1. */
+  points?: number;
 }
 
 export const ALL_WEEKDAYS: Weekday[] = [0, 1, 2, 3, 4, 5, 6];

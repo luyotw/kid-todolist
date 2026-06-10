@@ -109,4 +109,43 @@ describe('cloudSync', () => {
       expect.anything(),
     );
   });
+
+  it('pushSnapshotToPaths preserves adhoc points', async () => {
+    vi.spyOn(firestore, 'writeDoc').mockResolvedValue(undefined);
+    vi.spyOn(firestore, 'writeSingleton').mockResolvedValue(undefined);
+
+    await pushSnapshotToPaths(
+      {
+        tasks: 'families/fam-1/children/_default/tasks',
+        completions: 'families/fam-1/children/_default/completions',
+        adhoc: 'families/fam-1/children/_default/adhoc',
+        settings: 'families/fam-1/children/_default/meta/settings',
+      },
+      {
+        tasks: [],
+        adhoc: [
+          {
+            id: 'adhoc-1',
+            title: '倒垃圾',
+            date: '2026-01-05',
+            createdAt: 1,
+            points: 0,
+          },
+        ],
+        completions: {},
+        settings: {
+          completionMessage: '棒',
+          rewards: [],
+          pointsBalance: 0,
+        },
+      },
+    );
+
+    expect(firestore.writeDoc).toHaveBeenCalledWith(
+      'families/fam-1/children/_default/adhoc',
+      'adhoc-1',
+      expect.objectContaining({ points: 0 }),
+      expect.anything(),
+    );
+  });
 });

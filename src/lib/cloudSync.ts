@@ -158,6 +158,7 @@ export async function pushSnapshotToPaths(
           title: item.title,
           date: item.date,
           createdAt: item.createdAt,
+          ...(item.points !== undefined ? { points: item.points } : {}),
         },
         firestore,
       ),

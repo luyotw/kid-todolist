@@ -1,10 +1,12 @@
 import type { AdhocTask } from '../types';
 import { newId } from './ids';
+import { normalizeTaskPoints } from './points';
 
 export function createAdhoc(
   adhoc: AdhocTask[],
   title: string,
   date: string,
+  points?: number,
 ): AdhocTask[] {
   const trimmed = title.trim();
   if (!trimmed) return adhoc;
@@ -13,6 +15,7 @@ export function createAdhoc(
     title: trimmed,
     date,
     createdAt: Date.now(),
+    ...(points !== undefined ? { points: normalizeTaskPoints(points) } : {}),
   };
   return [...adhoc, task];
 }

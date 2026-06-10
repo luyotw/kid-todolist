@@ -33,9 +33,9 @@ describe('createTask', () => {
     expect(result[0].points).toBe(3);
   });
 
-  it('clamps invalid points to at least 1', () => {
+  it('allows zero points', () => {
     const result = createTask([], '寫功課', ALL_WEEKDAYS, 0);
-    expect(result[0].points).toBe(1);
+    expect(result[0].points).toBe(0);
   });
 });
 
@@ -66,9 +66,9 @@ describe('updateTask', () => {
     expect(result[1]).toBe(other);
   });
 
-  it('updates points and clamps invalid values', () => {
+  it('updates points and allows zero', () => {
     expect(updateTask([seed], 'a', { points: 5 })[0].points).toBe(5);
-    expect(updateTask([seed], 'a', { points: 0 })[0].points).toBe(1);
+    expect(updateTask([seed], 'a', { points: 0 })[0].points).toBe(0);
   });
 });
 
