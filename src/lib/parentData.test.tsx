@@ -63,6 +63,8 @@ const FAMILY_MEMBERSHIP = { familyId: 'fam-1', activeChildId: '_default' as cons
 
 const FAMILY_TASKS = 'families/fam-1/children/_default/tasks';
 
+const FAMILY_COMPLETIONS = 'families/fam-1/children/_default/completions';
+
 const FAMILY_ADHOC = 'families/fam-1/children/_default/adhoc';
 
 const FAMILY_SETTINGS = 'families/fam-1/children/_default/meta/settings';
@@ -207,6 +209,36 @@ describe('useCompletions cloud mode', () => {
     rerender({ dateStr: '2026-01-06' });
     await waitFor(() => expect(result.current.sync.ready).toBe(true));
     expect(result.current.completedIds.has('task-a')).toBe(false);
+  });
+
+  it('reflects remote completion changes after initial sync', async () => {
+    let completionsOnData: (items: unknown[]) => void = () => {};
+    vi.spyOn(firestore, 'subscribeDoc').mockImplementation((_path, onData) => {
+      onData(null);
+      return vi.fn();
+    });
+    vi.spyOn(firestore, 'writeDoc').mockResolvedValue(undefined);
+    vi.spyOn(firestore, 'writeSingleton').mockResolvedValue(undefined);
+    vi.spyOn(firestore, 'removeDoc').mockResolvedValue(undefined);
+    vi.spyOn(firestore, 'subscribeCollection').mockImplementation((path, onData) => {
+      if (path === FAMILY_COMPLETIONS) {
+        completionsOnData = onData as typeof completionsOnData;
+      }
+      onData([]);
+      return vi.fn();
+    });
+
+    const { result } = renderHook(() => useCompletions(DATE), { wrapper });
+    await waitFor(() => expect(result.current.sync.ready).toBe(true));
+    expect(result.current.completedIds.has('task-a')).toBe(false);
+
+    act(() => {
+      completionsOnData([{ id: DATE, ids: ['task-a'] }]);
+    });
+
+    await waitFor(() =>
+      expect(result.current.completedIds.has('task-a')).toBe(true),
+    );
   });
 });
 
@@ -655,6 +687,40 @@ describe('parentData local-first push', () => {
       FAMILY_TASKS,
       'local-1',
       expect.objectContaining({ title: '本機任務' }),
+      expect.anything(),
+    );
+  });
+
+  it('pulls cloud data instead of pushing stale local data when cloud is not empty', async () => {
+    window.localStorage.setItem(
+      'kid-todolist:tasks:v1',
+      JSON.stringify([{ id: 'local-1', title: '本機任務', weekdays: [0], createdAt: 0 }]),
+    );
+    vi.spyOn(firestore, 'writeDoc').mockClear();
+    vi.spyOn(firestore, 'subscribeCollection').mockImplementation((path, onData) => {
+      if (path === FAMILY_TASKS) {
+        onData([
+          {
+            id: 'cloud-1',
+            title: '雲端任務',
+            weekdays: [0],
+            createdAt: 1,
+          },
+        ]);
+      } else {
+        onData([]);
+      }
+      return vi.fn();
+    });
+
+    const { result } = renderHook(() => useTasks(), { wrapper });
+    await waitFor(() => expect(result.current.sync.ready).toBe(true));
+
+    expect(result.current.tasks.map((task) => task.title)).toEqual(['雲端任務']);
+    expect(firestore.writeDoc).not.toHaveBeenCalledWith(
+      FAMILY_TASKS,
+      'local-1',
+      expect.anything(),
       expect.anything(),
     );
   });

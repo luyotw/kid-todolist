@@ -140,6 +140,20 @@ function readLocalSnapshot(): LocalParentSnapshot {
   };
 }
 
+function hasCustomSettings(settings: ParentSettings): boolean {
+  return (
+    settings.completionMessage !== DEFAULT_COMPLETION_MESSAGE ||
+    settings.rewards.length > 0 ||
+    settings.pointsBalance !== 0 ||
+    Boolean(settings.taskOrder?.length) ||
+    Boolean(settings.dayOrders && Object.keys(settings.dayOrders).length > 0)
+  );
+}
+
+function isParentSnapshotEmpty(snapshot: LocalParentSnapshot): boolean {
+  return isLocalSnapshotEmpty(snapshot) && !hasCustomSettings(snapshot.settings);
+}
+
 interface ParentDataContextValue {
   tasks: Task[];
   tasksSync: CloudSyncMeta;
@@ -293,7 +307,8 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
       initialSyncDoneRef.current = true;
 
       const localSnap = readLocalSnapshot();
-      if (isLocalSnapshotEmpty(localSnap)) {
+      const cloudIsEmpty = isParentSnapshotEmpty(cloudSnap);
+      if (isParentSnapshotEmpty(localSnap) || !cloudIsEmpty) {
         localTasks.setTasks(cloudSnap.tasks);
         localCompletions.setAll(cloudSnap.completions);
         localAdhoc.setAll(cloudSnap.adhoc);
@@ -323,7 +338,11 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
       (items) => {
         cloudSnap.tasks = items;
         loaded.tasks = true;
-        finishInitialSync();
+        if (!initialSyncDoneRef.current) {
+          finishInitialSync();
+        } else {
+          localTasks.setTasks(items);
+        }
       },
       (err) => {
         setTasksError(firestoreReadError('任務', err));
@@ -339,7 +358,11 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
         for (const day of items) next[day.id] = day.ids ?? [];
         cloudSnap.completions = next;
         loaded.completions = true;
-        finishInitialSync();
+        if (!initialSyncDoneRef.current) {
+          finishInitialSync();
+        } else {
+          localCompletions.setAll(next);
+        }
       },
       (err) => {
         setCompletionsError(firestoreReadError('完成紀錄', err));
@@ -372,7 +395,11 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
         (data) => {
           cloudSnap.settings = settingsFromDoc(data);
           loaded.settings = true;
-          finishInitialSync();
+          if (!initialSyncDoneRef.current) {
+            finishInitialSync();
+          } else {
+            localSettings.setSettings(cloudSnap.settings);
+          }
         },
         (err) => {
           setSettingsError(firestoreReadError('獎勵設定', err));

@@ -174,4 +174,42 @@ describe('task order cloud sync', () => {
       expect.objectContaining({ taskOrder: [ids[1], ids[0]] }),
     );
   });
+
+  it('reflects remote settings order changes after initial sync', async () => {
+    let settingsOnData: (data: unknown) => void = () => {};
+    vi.spyOn(firestore, 'subscribeCollection').mockImplementation((_path, onData) => {
+      onData([]);
+      return vi.fn();
+    });
+    vi.spyOn(firestore, 'subscribeDoc').mockImplementation((_path, onData) => {
+      settingsOnData = onData as typeof settingsOnData;
+      onData(null);
+      return vi.fn();
+    });
+
+    const { result } = renderHook(() => useTaskOrder('2026-01-05'), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(result.current.taskOrder).toEqual([]));
+
+    act(() => {
+      settingsOnData({
+        completionMessage: '棒',
+        rewards: [],
+        pointsBalance: 0,
+        taskOrder: ['task-b', 'task-a'],
+        dayOrders: {
+          '2026-01-05': [{ source: 'task', id: 'task-b' }],
+        },
+      });
+    });
+
+    await waitFor(() =>
+      expect(result.current.taskOrder).toEqual(['task-b', 'task-a']),
+    );
+    expect(result.current.dayOrders['2026-01-05']).toEqual([
+      { source: 'task', id: 'task-b' },
+    ]);
+  });
 });
