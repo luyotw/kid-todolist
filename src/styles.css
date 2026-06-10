@@ -283,10 +283,14 @@ body {
 
 .task-add button,
 .task-row button {
+  -webkit-appearance: none;
+  appearance: none;
   padding: 10px 14px;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--card);
+  color: var(--fg);
+  -webkit-text-fill-color: var(--fg);
   font-size: 14px;
   min-height: 40px;
 }
@@ -991,12 +995,16 @@ body {
 }
 
 .adhoc-add button {
+  -webkit-appearance: none;
+  appearance: none;
   flex: 0 0 auto;
   min-width: 46px;
   padding: 10px 16px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--card);
+  color: var(--fg);
+  -webkit-text-fill-color: var(--fg);
   font-size: 14px;
 }
 
