@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faRefresh, faSignOut } from '@fortawesome/free-solid-svg-icons';
+import { faPen, faRefresh, faSignOut } from '@fortawesome/free-solid-svg-icons';
+import BottomSheet from './components/BottomSheet';
 import { AuthProvider, useAuth } from './lib/auth';
 import {
   ParentDataProvider,
@@ -25,11 +26,10 @@ import SettingsPage from './pages/SettingsPage';
 import TasksPage from './pages/TasksPage';
 import TodayPage from './pages/TodayPage';
 
-type Tab = 'today' | 'tasks' | 'settings';
+type Tab = 'today' | 'settings';
 
 const TAB_TITLE: Record<Tab, string> = {
   today: '今天',
-  tasks: '任務',
   settings: '設定',
 };
 
@@ -133,10 +133,17 @@ function AppShell() {
   const { balance } = usePoints();
   const [tab, setTab] = useState<Tab>('today');
   const [confirmSignOut, setConfirmSignOut] = useState(false);
+  const [tasksSheetOpen, setTasksSheetOpen] = useState(false);
 
   const displayName = isGuest
     ? '訪客'
     : user?.displayName || user?.email?.split('@')[0] || '家長';
+
+  useEffect(() => {
+    if (tab !== 'today' && tasksSheetOpen) {
+      setTasksSheetOpen(false);
+    }
+  }, [tab, tasksSheetOpen]);
 
   const handleSignOut = () => {
     setConfirmSignOut(false);
@@ -180,6 +187,16 @@ function AppShell() {
             >
               <FontAwesomeIcon icon={faRefresh} aria-hidden />
             </button>
+            {tab === 'today' && (
+              <button
+                type="button"
+                className="app-header__tasks"
+                aria-label="管理任務"
+                onClick={() => setTasksSheetOpen(true)}
+              >
+                <FontAwesomeIcon icon={faPen} aria-hidden />
+              </button>
+            )}
             <button
               type="button"
               className="app-header__signout"
@@ -209,13 +226,23 @@ function AppShell() {
         </div>
       )}
 
-      <main className="app-main">
+      <BottomSheet
+        open={tasksSheetOpen}
+        onClose={() => setTasksSheetOpen(false)}
+        ariaLabel="管理任務"
+      >
+        <TasksPage />
+      </BottomSheet>
+
+      <main
+        className={tasksSheetOpen ? 'app-main app-main--locked' : 'app-main'}
+        aria-hidden={tasksSheetOpen ? true : undefined}
+      >
         {tab === 'today' && <TodayPage />}
-        {tab === 'tasks' && <TasksPage />}
         {tab === 'settings' && <SettingsPage />}
       </main>
       <nav className="app-tabbar" aria-label="主要導覽">
-        {(['today', 'tasks', 'settings'] as Tab[]).map((t) => (
+        {(['today', 'settings'] as Tab[]).map((t) => (
           <button
             key={t}
             type="button"

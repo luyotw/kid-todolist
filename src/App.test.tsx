@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
 
@@ -115,5 +116,86 @@ describe('App sign-out confirmation', () => {
     expect(
       screen.queryByRole('navigation', { name: '主要導覽' }),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe('App tasks sheet', () => {
+  beforeEach(() => {
+    mockUser = {
+      uid: 'u1',
+      displayName: '家長小明',
+      photoURL: 'https://example.com/a.jpg',
+      email: 'a@example.com',
+    };
+    signOutUser.mockClear();
+    reloadApp.mockClear();
+  });
+
+  it('shows manage-tasks button between refresh and sign-out on today tab', () => {
+    render(<App />);
+    const actions = screen
+      .getByRole('button', { name: '重新整理' })
+      .closest('.app-header__actions');
+    expect(actions).not.toBeNull();
+    const labels = within(actions!).getAllByRole('button').map((button) => {
+      return button.getAttribute('aria-label');
+    });
+    expect(labels).toEqual(['重新整理', '管理任務', '登出']);
+  });
+
+  it('hides manage-tasks button on settings tab', () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: '設定' }));
+    expect(
+      screen.queryByRole('button', { name: '管理任務' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('opens task management in a bottom sheet', () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: '管理任務' }));
+    expect(screen.getByLabelText('新任務')).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: '管理任務' })).toBeInTheDocument();
+  });
+
+  it('closes the bottom sheet via backdrop or close control', () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: '管理任務' }));
+    expect(screen.getByLabelText('新任務')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('bottom-sheet-backdrop'));
+    expect(screen.queryByLabelText('新任務')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '管理任務' }));
+    fireEvent.click(screen.getByRole('button', { name: '關閉' }));
+    expect(screen.queryByLabelText('新任務')).not.toBeInTheDocument();
+  });
+
+  it('shows only today and settings tabs', () => {
+    render(<App />);
+    expect(screen.getByRole('button', { name: '今天' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '設定' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '任務' })).not.toBeInTheDocument();
+  });
+
+  it('closes the sheet when switching to settings', () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: '管理任務' }));
+    expect(screen.getByLabelText('新任務')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '設定' }));
+    expect(screen.queryByLabelText('新任務')).not.toBeInTheDocument();
+  });
+
+  it('reflects new scheduled tasks on today after closing the sheet', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole('button', { name: '管理任務' }));
+    await user.type(screen.getByLabelText('新任務'), '刷牙');
+    await user.click(screen.getByRole('button', { name: '加' }));
+    await user.click(screen.getByRole('button', { name: '關閉' }));
+
+    expect(screen.getByRole('checkbox', { name: '刷牙' })).toBeInTheDocument();
   });
 });
