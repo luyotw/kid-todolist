@@ -123,7 +123,7 @@ describe('task order guest persistence', () => {
     const taskId = result.current.tasks.tasks[0]!.id;
 
     act(() =>
-      result.current.order.reorderToday('2026-01-05', [
+      result.current.order.reorderToday([
         { source: 'task', id: taskId },
       ]),
     );
@@ -137,12 +137,43 @@ describe('task order guest persistence', () => {
       { source: 'task', id: taskId },
     ]);
 
-    act(() => result.current.order.restoreDefaultTodayOrder('2026-01-05'));
+    act(() => result.current.order.restoreDefaultTodayOrder());
     expect(result.current.order.hasOverride).toBe(false);
     expect(
       storage.get<{ dayOrders?: Record<string, unknown[]> }>(SETTINGS_KEY, {})
         .dayOrders?.['2026-01-05'],
     ).toBeUndefined();
+  });
+
+  it('persists extra override separately from today', async () => {
+    const { result } = renderHook(
+      () => ({
+        tasks: useTasks(),
+        todayOrder: useTaskOrder('2026-01-05', 'today'),
+        extraOrder: useTaskOrder('2026-01-05', 'extra'),
+      }),
+      { wrapper },
+    );
+
+    await waitFor(() => expect(result.current.tasks.sync.ready).toBe(true));
+
+    act(() => result.current.tasks.create('刷牙'));
+    const taskId = result.current.tasks.tasks[0]!.id;
+
+    act(() =>
+      result.current.extraOrder.reorderToday([{ source: 'task', id: taskId }]),
+    );
+
+    const stored = storage.get<{
+      dayOrders?: Record<string, unknown[]>;
+      extraDayOrders?: Record<string, unknown[]>;
+    }>(SETTINGS_KEY, {});
+    expect(stored.extraDayOrders?.['2026-01-05']).toEqual([
+      { source: 'task', id: taskId },
+    ]);
+    expect(stored.dayOrders?.['2026-01-05']).toBeUndefined();
+    expect(result.current.todayOrder.hasOverride).toBe(false);
+    expect(result.current.extraOrder.hasOverride).toBe(true);
   });
 });
 

@@ -74,12 +74,16 @@ import {
   getTaskPoints,
   type RedemptionResult,
 } from './points';
+import type { ListScope } from './listScope';
 
 export { DEFAULT_COMPLETION_MESSAGE, DEFAULT_COMPLETION_MESSAGE as DEFAULT_REWARD };
+export type { ListScope } from './listScope';
 
 const TASKS_KEY = 'kid-todolist:tasks:v1';
 const COMPLETIONS_KEY = 'kid-todolist:completions:v1';
 const ADHOC_KEY = 'kid-todolist:adhoc:v1';
+const EXTRA_COMPLETIONS_KEY = 'kid-todolist:extra-completions:v1';
+const EXTRA_ADHOC_KEY = 'kid-todolist:extra-adhoc:v1';
 
 type StoredCompletions = Record<string, string[]>;
 
@@ -96,6 +100,7 @@ interface SettingsDoc {
   rewardCost?: number;
   taskOrder?: string[];
   dayOrders?: DayOrders;
+  extraDayOrders?: DayOrders;
 }
 
 function settingsFromDoc(data: SettingsDoc | null): ParentSettings {
@@ -108,6 +113,7 @@ function settingsFromDoc(data: SettingsDoc | null): ParentSettings {
     rewardCost: data.rewardCost,
     taskOrder: data.taskOrder,
     dayOrders: data.dayOrders,
+    extraDayOrders: data.extraDayOrders,
   });
 }
 
@@ -118,6 +124,7 @@ function settingsToDoc(settings: ParentSettings): SettingsDoc {
     pointsBalance: settings.pointsBalance,
     ...(settings.taskOrder ? { taskOrder: settings.taskOrder } : {}),
     ...(settings.dayOrders ? { dayOrders: settings.dayOrders } : {}),
+    ...(settings.extraDayOrders ? { extraDayOrders: settings.extraDayOrders } : {}),
   };
 }
 
@@ -135,6 +142,8 @@ function readLocalSnapshot(): LocalParentSnapshot {
     tasks: storage.get<Task[]>(TASKS_KEY, []),
     completions: storage.get<StoredCompletions>(COMPLETIONS_KEY, {}),
     adhoc: storage.get<AdhocTask[]>(ADHOC_KEY, []),
+    extraCompletions: storage.get<StoredCompletions>(EXTRA_COMPLETIONS_KEY, {}),
+    extraAdhoc: storage.get<AdhocTask[]>(EXTRA_ADHOC_KEY, []),
     settings: loadLocalSettings(),
   };
 }
@@ -145,7 +154,8 @@ function hasCustomSettings(settings: ParentSettings): boolean {
     settings.rewards.length > 0 ||
     settings.pointsBalance !== 0 ||
     Boolean(settings.taskOrder?.length) ||
-    Boolean(settings.dayOrders && Object.keys(settings.dayOrders).length > 0)
+    Boolean(settings.dayOrders && Object.keys(settings.dayOrders).length > 0) ||
+    Boolean(settings.extraDayOrders && Object.keys(settings.extraDayOrders).length > 0)
   );
 }
 
@@ -168,11 +178,20 @@ interface ParentDataContextValue {
   removeTask: (id: string) => void;
   allCompletions: StoredCompletions;
   completionsSync: CloudSyncMeta;
-  toggleCompletion: (dateStr: string, taskId: string) => void;
+  toggleCompletion: (dateStr: string, taskId: string, scope?: ListScope) => void;
+  allExtraCompletions: StoredCompletions;
+  extraCompletionsSync: CloudSyncMeta;
   allAdhoc: AdhocTask[];
   adhocSync: CloudSyncMeta;
-  addAdhoc: (title: string, dateStr: string, points?: number) => void;
-  removeAdhoc: (id: string) => void;
+  addAdhoc: (
+    title: string,
+    dateStr: string,
+    points?: number,
+    scope?: ListScope,
+  ) => void;
+  removeAdhoc: (id: string, scope?: ListScope) => void;
+  allExtraAdhoc: AdhocTask[];
+  extraAdhocSync: CloudSyncMeta;
   completionMessage: string;
   rewards: RewardItem[];
   pointsBalance: number;
@@ -189,10 +208,15 @@ interface ParentDataContextValue {
   sync: CloudSyncMeta;
   taskOrder: string[];
   dayOrders: DayOrders;
+  extraDayOrders: DayOrders;
   reorderGlobalTasks: (orderedIds: string[]) => void;
-  reorderToday: (dateStr: string, keys: OrderedItemKey[]) => void;
-  restoreDefaultTodayOrder: (dateStr: string) => void;
-  hasTodayOrderOverride: (dateStr: string) => boolean;
+  reorderToday: (
+    dateStr: string,
+    keys: OrderedItemKey[],
+    scope?: ListScope,
+  ) => void;
+  restoreDefaultTodayOrder: (dateStr: string, scope?: ListScope) => void;
+  hasTodayOrderOverride: (dateStr: string, scope?: ListScope) => boolean;
 }
 
 const ParentDataContext = createContext<ParentDataContextValue | null>(null);
@@ -227,6 +251,26 @@ function useLocalAdhoc() {
   return { all, setAll };
 }
 
+function useLocalExtraCompletions() {
+  const [all, setAll] = useState<StoredCompletions>(() =>
+    storage.get<StoredCompletions>(EXTRA_COMPLETIONS_KEY, {}),
+  );
+  useEffect(() => {
+    storage.set(EXTRA_COMPLETIONS_KEY, all);
+  }, [all]);
+  return { all, setAll };
+}
+
+function useLocalExtraAdhoc() {
+  const [all, setAll] = useState<AdhocTask[]>(() =>
+    storage.get<AdhocTask[]>(EXTRA_ADHOC_KEY, []),
+  );
+  useEffect(() => {
+    storage.set(EXTRA_ADHOC_KEY, all);
+  }, [all]);
+  return { all, setAll };
+}
+
 function useLocalSettingsState() {
   const [settings, setSettings] = useState<ParentSettings>(() =>
     loadLocalSettings(),
@@ -249,13 +293,17 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
 
   const localTasks = useLocalTasks();
   const localCompletions = useLocalCompletions();
+  const localExtraCompletions = useLocalExtraCompletions();
   const localAdhoc = useLocalAdhoc();
+  const localExtraAdhoc = useLocalExtraAdhoc();
   const localSettings = useLocalSettingsState();
 
   const [cloudSyncReady, setCloudSyncReady] = useState(false);
   const [tasksError, setTasksError] = useState<string | null>(null);
   const [completionsError, setCompletionsError] = useState<string | null>(null);
+  const [extraCompletionsError, setExtraCompletionsError] = useState<string | null>(null);
   const [adhocError, setAdhocError] = useState<string | null>(null);
+  const [extraAdhocError, setExtraAdhocError] = useState<string | null>(null);
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const initialSyncDoneRef = useRef(false);
 
@@ -288,19 +336,30 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
     const cloudSnap = {
       tasks: [] as Task[],
       completions: {} as StoredCompletions,
+      extraCompletions: {} as StoredCompletions,
       adhoc: [] as AdhocTask[],
+      extraAdhoc: [] as AdhocTask[],
       settings: normalizeSettings(null),
     };
     const loaded = {
       tasks: false,
       completions: false,
+      extraCompletions: false,
       adhoc: false,
+      extraAdhoc: false,
       settings: false,
     };
 
     const finishInitialSync = () => {
       if (cancelled || initialSyncDoneRef.current) return;
-      if (!loaded.tasks || !loaded.completions || !loaded.adhoc || !loaded.settings) {
+      if (
+        !loaded.tasks ||
+        !loaded.completions ||
+        !loaded.extraCompletions ||
+        !loaded.adhoc ||
+        !loaded.extraAdhoc ||
+        !loaded.settings
+      ) {
         return;
       }
       initialSyncDoneRef.current = true;
@@ -310,7 +369,9 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
       if (isParentSnapshotEmpty(localSnap) || !cloudIsEmpty) {
         localTasks.setTasks(cloudSnap.tasks);
         localCompletions.setAll(cloudSnap.completions);
+        localExtraCompletions.setAll(cloudSnap.extraCompletions);
         localAdhoc.setAll(cloudSnap.adhoc);
+        localExtraAdhoc.setAll(cloudSnap.extraAdhoc);
         localSettings.setSettings(cloudSnap.settings);
       } else {
         void runCloudWrite(
@@ -318,13 +379,14 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
           (msg) => {
             setTasksError(msg);
             setCompletionsError(msg);
+            setExtraCompletionsError(msg);
             setAdhocError(msg);
+            setExtraAdhocError(msg);
             setSettingsError(msg);
           },
         );
-        // Local-first push keeps tasks/completions/settings; still mirror cloud adhoc
-        // so temp tasks from other devices appear after refresh.
         localAdhoc.setAll(cloudSnap.adhoc);
+        localExtraAdhoc.setAll(cloudSnap.extraAdhoc);
       }
       setCloudSyncReady(true);
     };
@@ -370,6 +432,26 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
       },
     );
 
+    const unsubExtraCompletions = subscribeCollection<CompletionDay>(
+      syncPaths.extraCompletions,
+      (items) => {
+        const next: StoredCompletions = {};
+        for (const day of items) next[day.id] = day.ids ?? [];
+        cloudSnap.extraCompletions = next;
+        loaded.extraCompletions = true;
+        if (!initialSyncDoneRef.current) {
+          finishInitialSync();
+        } else {
+          localExtraCompletions.setAll(next);
+        }
+      },
+      (err) => {
+        setExtraCompletionsError(firestoreReadError('額外完成紀錄', err));
+        loaded.extraCompletions = true;
+        finishInitialSync();
+      },
+    );
+
     const unsubAdhoc = subscribeCollection<AdhocTask>(
       syncPaths.adhoc,
       (items) => {
@@ -385,6 +467,25 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
       (err) => {
         setAdhocError(firestoreReadError('臨時任務', err));
         loaded.adhoc = true;
+        finishInitialSync();
+      },
+    );
+
+    const unsubExtraAdhoc = subscribeCollection<AdhocTask>(
+      syncPaths.extraAdhoc,
+      (items) => {
+        cloudSnap.extraAdhoc = items;
+        loaded.extraAdhoc = true;
+        if (!initialSyncDoneRef.current) {
+          finishInitialSync();
+        }
+        if (initialSyncDoneRef.current) {
+          localExtraAdhoc.setAll(items);
+        }
+      },
+      (err) => {
+        setExtraAdhocError(firestoreReadError('額外臨時任務', err));
+        loaded.extraAdhoc = true;
         finishInitialSync();
       },
     );
@@ -410,7 +511,9 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
       cleanup = () => {
         unsubTasks();
         unsubCompletions();
+        unsubExtraCompletions();
         unsubAdhoc();
+        unsubExtraAdhoc();
         unsubSettings();
       };
     };
@@ -437,7 +540,9 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
 
   const tasks = localTasks.tasks;
   const allCompletions = localCompletions.all;
+  const allExtraCompletions = localExtraCompletions.all;
   const allAdhoc = localAdhoc.all;
+  const allExtraAdhoc = localExtraAdhoc.all;
   const settings = localSettings.settings;
   const completionMessage = settings.completionMessage;
   const rewards = settings.rewards;
@@ -455,13 +560,19 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
   const completionsSync = cloudMode
     ? cloudSyncMeta(completionsError)
     : idleSync;
+  const extraCompletionsSync = cloudMode
+    ? cloudSyncMeta(extraCompletionsError)
+    : idleSync;
   const adhocSync = cloudMode ? cloudSyncMeta(adhocError) : idleSync;
+  const extraAdhocSync = cloudMode ? cloudSyncMeta(extraAdhocError) : idleSync;
   const rewardSync = cloudMode ? cloudSyncMeta(settingsError) : idleSync;
 
   const sync = mergeSyncMeta(
     tasksSync,
     completionsSync,
+    extraCompletionsSync,
     adhocSync,
+    extraAdhocSync,
     rewardSync,
   );
 
@@ -525,10 +636,11 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
   const removeTask = useCallback(
     (id: string) => {
       localTasks.setTasks((prev) => deleteTaskPure(prev, id));
-      const { taskOrder, dayOrders } = removeTaskFromOrders(
+      const { taskOrder, dayOrders, extraDayOrders } = removeTaskFromOrders(
         id,
         settings.taskOrder,
         settings.dayOrders,
+        settings.extraDayOrders,
       );
       persistSettings({
         ...settings,
@@ -536,6 +648,9 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
         ...(Object.keys(dayOrders).length > 0
           ? { dayOrders }
           : { dayOrders: undefined }),
+        ...(Object.keys(extraDayOrders).length > 0
+          ? { extraDayOrders }
+          : { extraDayOrders: undefined }),
       });
       if (cloudMode) {
         void runCloudWrite(
@@ -551,13 +666,20 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
     setCompletionsError(msg);
   }, []);
 
+  const setExtraCompletionsErrorMsg = useCallback((msg: string) => {
+    setExtraCompletionsError(msg);
+  }, []);
+
   const toggleCompletion = useCallback(
-    (dateStr: string, taskId: string) => {
-      const wasCompleted = (allCompletions[dateStr] ?? []).includes(taskId);
+    (dateStr: string, taskId: string, scope: ListScope = 'today') => {
+      const sourceCompletions =
+        scope === 'extra' ? allExtraCompletions : allCompletions;
+      const wasCompleted = (sourceCompletions[dateStr] ?? []).includes(taskId);
       const completing = !wasCompleted;
       const completionItem =
         tasks.find((t) => t.id === taskId) ??
-        allAdhoc.find((item) => item.id === taskId);
+        allAdhoc.find((item) => item.id === taskId) ??
+        allExtraAdhoc.find((item) => item.id === taskId);
       const affectsPoints = Boolean(completionItem);
 
       const applyCompletions = (prev: StoredCompletions) => {
@@ -579,11 +701,19 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
         };
       };
 
-      const nextCompletions = applyCompletions(allCompletions);
+      const nextCompletions = applyCompletions(sourceCompletions);
       const ids = nextCompletions[dateStr] ?? [];
       const nextSettings = applyPoints(settings);
+      const completionsPath =
+        scope === 'extra'
+          ? syncTarget.paths.extraCompletions
+          : syncTarget.paths.completions;
+      const setCompletions =
+        scope === 'extra' ? localExtraCompletions.setAll : localCompletions.setAll;
+      const setCompletionsError =
+        scope === 'extra' ? setExtraCompletionsErrorMsg : setCompletionsErrorMsg;
 
-      localCompletions.setAll(nextCompletions);
+      setCompletions(nextCompletions);
       if (nextSettings !== settings) {
         localSettings.setSettings(nextSettings);
       }
@@ -591,27 +721,30 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
       if (cloudMode) {
         void runCloudWrite(async () => {
           if (ids.length === 0) {
-            await removeDoc(syncTarget.paths.completions, dateStr);
+            await removeDoc(completionsPath, dateStr);
           } else {
-            await writeDoc(syncTarget.paths.completions, dateStr, { ids });
+            await writeDoc(completionsPath, dateStr, { ids });
           }
           if (nextSettings !== settings) {
             await writeSingleton(syncTarget.paths.settings, settingsToDoc(nextSettings));
           }
-        }, setCompletionsErrorMsg);
+        }, setCompletionsError);
       }
     },
     [
       cloudMode,
       allCompletions,
+      allExtraCompletions,
       allAdhoc,
+      allExtraAdhoc,
       tasks,
       settings,
-      uid,
       syncTarget.paths,
       localCompletions,
+      localExtraCompletions,
       localSettings,
       setCompletionsErrorMsg,
+      setExtraCompletionsErrorMsg,
     ],
   );
 
@@ -619,51 +752,92 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
     setAdhocError(msg);
   }, []);
 
+  const setExtraAdhocErrorMsg = useCallback((msg: string) => {
+    setExtraAdhocError(msg);
+  }, []);
+
   const addAdhoc = useCallback(
-    (title: string, dateStr: string, points?: number) => {
-      const next = createAdhocPure(allAdhoc, title, dateStr, points);
+    (title: string, dateStr: string, points?: number, scope: ListScope = 'today') => {
+      const sourceAdhoc = scope === 'extra' ? allExtraAdhoc : allAdhoc;
+      const next = createAdhocPure(sourceAdhoc, title, dateStr, points);
       const created = next[next.length - 1];
-      if (!created || next.length === allAdhoc.length) return;
-      localAdhoc.setAll(next);
+      if (!created || next.length === sourceAdhoc.length) return;
+
+      if (scope === 'extra') {
+        localExtraAdhoc.setAll(next);
+      } else {
+        localAdhoc.setAll(next);
+      }
+
+      const dayOrderSource =
+        scope === 'extra' ? settings.extraDayOrders : settings.dayOrders;
       const dayOrders = appendAdhocToDayOrderIfOverride(
-        settings.dayOrders,
+        dayOrderSource,
         dateStr,
         created.id,
       );
-      if (dayOrders !== settings.dayOrders) {
+      if (dayOrders !== dayOrderSource) {
         persistSettings({
           ...settings,
-          dayOrders:
-            Object.keys(dayOrders).length > 0 ? dayOrders : undefined,
+          ...(scope === 'extra'
+            ? {
+                extraDayOrders:
+                  Object.keys(dayOrders).length > 0 ? dayOrders : undefined,
+              }
+            : {
+                dayOrders:
+                  Object.keys(dayOrders).length > 0 ? dayOrders : undefined,
+              }),
         });
       }
+
       if (cloudMode) {
+        const adhocPath =
+          scope === 'extra' ? syncTarget.paths.extraAdhoc : syncTarget.paths.adhoc;
+        const setError =
+          scope === 'extra' ? setExtraAdhocErrorMsg : setAdhocErrorMsg;
         void runCloudWrite(
           () =>
-            writeDoc(syncTarget.paths.adhoc, created.id, {
+            writeDoc(adhocPath, created.id, {
               title: created.title,
               date: created.date,
               createdAt: created.createdAt,
               ...(created.points !== undefined ? { points: created.points } : {}),
             }),
-          setAdhocErrorMsg,
+          setError,
         );
       }
     },
-    [cloudMode, syncTarget.paths, allAdhoc, settings, localAdhoc, persistSettings, setAdhocErrorMsg],
+    [
+      cloudMode,
+      syncTarget.paths,
+      allAdhoc,
+      allExtraAdhoc,
+      settings,
+      localAdhoc,
+      localExtraAdhoc,
+      persistSettings,
+      setAdhocErrorMsg,
+      setExtraAdhocErrorMsg,
+    ],
   );
 
   const removeAdhocItem = useCallback(
-    (id: string) => {
-      localAdhoc.setAll((prev) => deleteAdhocPure(prev, id));
+    (id: string, scope: ListScope = 'today') => {
+      if (scope === 'extra') {
+        localExtraAdhoc.setAll((prev) => deleteAdhocPure(prev, id));
+      } else {
+        localAdhoc.setAll((prev) => deleteAdhocPure(prev, id));
+      }
       if (cloudMode) {
-        void runCloudWrite(
-          () => removeDoc(syncTarget.paths.adhoc, id),
-          setAdhocErrorMsg,
-        );
+        const adhocPath =
+          scope === 'extra' ? syncTarget.paths.extraAdhoc : syncTarget.paths.adhoc;
+        const setError =
+          scope === 'extra' ? setExtraAdhocErrorMsg : setAdhocErrorMsg;
+        void runCloudWrite(() => removeDoc(adhocPath, id), setError);
       }
     },
-    [cloudMode, uid, localAdhoc, setAdhocErrorMsg],
+    [cloudMode, localAdhoc, localExtraAdhoc, setAdhocErrorMsg, setExtraAdhocErrorMsg, syncTarget.paths],
   );
 
   const setCompletionMessage = useCallback(
@@ -705,6 +879,7 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
 
   const taskOrder = settings.taskOrder ?? [];
   const dayOrders = settings.dayOrders ?? {};
+  const extraDayOrders = settings.extraDayOrders ?? {};
 
   const reorderGlobalTasks = useCallback(
     (orderedIds: string[]) => {
@@ -717,7 +892,14 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
   );
 
   const reorderToday = useCallback(
-    (dateStr: string, keys: OrderedItemKey[]) => {
+    (dateStr: string, keys: OrderedItemKey[], scope: ListScope = 'today') => {
+      if (scope === 'extra') {
+        persistSettings({
+          ...settings,
+          extraDayOrders: setDayOrder(settings.extraDayOrders, dateStr, keys),
+        });
+        return;
+      }
       persistSettings({
         ...settings,
         dayOrders: setDayOrder(settings.dayOrders, dateStr, keys),
@@ -727,7 +909,16 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
   );
 
   const restoreDefaultTodayOrder = useCallback(
-    (dateStr: string) => {
+    (dateStr: string, scope: ListScope = 'today') => {
+      if (scope === 'extra') {
+        const nextDayOrders = clearDayOrder(settings.extraDayOrders, dateStr);
+        persistSettings({
+          ...settings,
+          extraDayOrders:
+            Object.keys(nextDayOrders).length > 0 ? nextDayOrders : undefined,
+        });
+        return;
+      }
       const nextDayOrders = clearDayOrder(settings.dayOrders, dateStr);
       persistSettings({
         ...settings,
@@ -739,8 +930,11 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
   );
 
   const hasTodayOrderOverride = useCallback(
-    (dateStr: string) => hasDayOverride(settings.dayOrders, dateStr),
-    [settings.dayOrders],
+    (dateStr: string, scope: ListScope = 'today') =>
+      scope === 'extra'
+        ? hasDayOverride(settings.extraDayOrders, dateStr)
+        : hasDayOverride(settings.dayOrders, dateStr),
+    [settings.dayOrders, settings.extraDayOrders],
   );
 
   const redeemReward = useCallback(
@@ -768,10 +962,14 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
       allCompletions,
       completionsSync,
       toggleCompletion,
+      allExtraCompletions,
+      extraCompletionsSync,
       allAdhoc,
       adhocSync,
       addAdhoc,
       removeAdhoc: removeAdhocItem,
+      allExtraAdhoc,
+      extraAdhocSync,
       completionMessage,
       rewards,
       pointsBalance,
@@ -785,6 +983,7 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
       sync,
       taskOrder,
       dayOrders,
+      extraDayOrders,
       reorderGlobalTasks,
       reorderToday,
       restoreDefaultTodayOrder,
@@ -799,10 +998,14 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
       allCompletions,
       completionsSync,
       toggleCompletion,
+      allExtraCompletions,
+      extraCompletionsSync,
       allAdhoc,
       adhocSync,
       addAdhoc,
       removeAdhocItem,
+      allExtraAdhoc,
+      extraAdhocSync,
       completionMessage,
       rewards,
       pointsBalance,
@@ -815,6 +1018,7 @@ export function ParentDataProvider({ children }: { children: ReactNode }) {
       sync,
       taskOrder,
       dayOrders,
+      extraDayOrders,
       reorderGlobalTasks,
       reorderToday,
       restoreDefaultTodayOrder,
@@ -867,48 +1071,78 @@ export function useTasks() {
   };
 }
 
-export function useTaskOrder(dateStr: string) {
+export function useTaskOrder(dateStr: string, scope: ListScope = 'today') {
   const {
     taskOrder,
     dayOrders,
+    extraDayOrders,
     reorderToday,
     restoreDefaultTodayOrder,
     hasTodayOrderOverride,
   } = useParentData();
+  const scopedDayOrders = scope === 'extra' ? extraDayOrders : dayOrders;
   return {
     taskOrder,
-    dayOrders,
-    reorderToday,
-    restoreDefaultTodayOrder,
-    hasOverride: hasTodayOrderOverride(dateStr),
+    dayOrders: scopedDayOrders,
+    reorderToday: (keys: OrderedItemKey[]) =>
+      reorderToday(dateStr, keys, scope),
+    restoreDefaultTodayOrder: () => restoreDefaultTodayOrder(dateStr, scope),
+    hasOverride: hasTodayOrderOverride(dateStr, scope),
   };
 }
 
-export function useCompletions(dateStr: string) {
-  const { allCompletions, completionsSync, toggleCompletion } =
-    useParentData();
+export function useCompletions(dateStr: string, scope: ListScope = 'today') {
+  const {
+    allCompletions,
+    allExtraCompletions,
+    completionsSync,
+    extraCompletionsSync,
+    toggleCompletion,
+  } = useParentData();
+  const source = scope === 'extra' ? allExtraCompletions : allCompletions;
   const completedIds = useMemo(
-    () => new Set<string>(allCompletions[dateStr] ?? []),
-    [allCompletions, dateStr],
+    () => new Set<string>(source[dateStr] ?? []),
+    [source, dateStr],
   );
   const toggle = useCallback(
-    (taskId: string) => toggleCompletion(dateStr, taskId),
-    [toggleCompletion, dateStr],
+    (taskId: string) => toggleCompletion(dateStr, taskId, scope),
+    [toggleCompletion, dateStr, scope],
   );
-  return { completedIds, toggle, sync: completionsSync };
+  return {
+    completedIds,
+    toggle,
+    sync: scope === 'extra' ? extraCompletionsSync : completionsSync,
+  };
 }
 
-export function useAdhoc(dateStr: string) {
-  const { allAdhoc, adhocSync, addAdhoc, removeAdhoc } = useParentData();
+export function useAdhoc(dateStr: string, scope: ListScope = 'today') {
+  const {
+    allAdhoc,
+    allExtraAdhoc,
+    adhocSync,
+    extraAdhocSync,
+    addAdhoc,
+    removeAdhoc,
+  } = useParentData();
+  const source = scope === 'extra' ? allExtraAdhoc : allAdhoc;
   const adhocToday = useMemo(
-    () => getAdhocFor(allAdhoc, dateStr),
-    [allAdhoc, dateStr],
+    () => getAdhocFor(source, dateStr),
+    [source, dateStr],
   );
   const add = useCallback(
-    (title: string, points?: number) => addAdhoc(title, dateStr, points),
-    [addAdhoc, dateStr],
+    (title: string, points?: number) => addAdhoc(title, dateStr, points, scope),
+    [addAdhoc, dateStr, scope],
   );
-  return { adhocToday, add, remove: removeAdhoc, sync: adhocSync };
+  const remove = useCallback(
+    (id: string) => removeAdhoc(id, scope),
+    [removeAdhoc, scope],
+  );
+  return {
+    adhocToday,
+    add,
+    remove,
+    sync: scope === 'extra' ? extraAdhocSync : adhocSync,
+  };
 }
 
 export function useReward() {

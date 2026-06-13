@@ -67,6 +67,11 @@ const FAMILY_COMPLETIONS = 'families/fam-1/children/_default/completions';
 
 const FAMILY_ADHOC = 'families/fam-1/children/_default/adhoc';
 
+const FAMILY_EXTRA_COMPLETIONS =
+  'families/fam-1/children/_default/extraCompletions';
+
+const FAMILY_EXTRA_ADHOC = 'families/fam-1/children/_default/extraAdhoc';
+
 const FAMILY_SETTINGS = 'families/fam-1/children/_default/meta/settings';
 
 const DATE = '2026-01-05';
@@ -851,5 +856,123 @@ describe('parentData pull from empty local', () => {
     const { result } = renderHook(() => useAdhoc(DATE), { wrapper });
     await waitFor(() => expect(result.current.sync.ready).toBe(true));
     expect(result.current.adhocToday.map((item) => item.id)).toEqual(['cloud-adhoc']);
+  });
+});
+
+describe('extra list scope isolation', () => {
+  beforeEach(() => {
+    membershipState.membership = null;
+    membershipState.loading = false;
+    window.localStorage.clear();
+    mockCloudSubscriptions();
+  });
+
+  it('keeps extra completions separate from today', async () => {
+    const { result } = renderHook(
+      () => ({
+        today: useCompletions(DATE, 'today'),
+        extra: useCompletions(DATE, 'extra'),
+      }),
+      { wrapper },
+    );
+
+    await waitFor(() => expect(result.current.today.sync.ready).toBe(true));
+
+    act(() => result.current.today.toggle('task-a'));
+    expect(result.current.today.completedIds.has('task-a')).toBe(true);
+    expect(result.current.extra.completedIds.has('task-a')).toBe(false);
+  });
+
+  it('keeps extra adhoc separate from today', async () => {
+    const { result } = renderHook(
+      () => ({
+        today: useAdhoc(DATE, 'today'),
+        extra: useAdhoc(DATE, 'extra'),
+      }),
+      { wrapper },
+    );
+
+    await waitFor(() => expect(result.current.today.sync.ready).toBe(true));
+
+    act(() => result.current.today.add('今天臨時'));
+    expect(result.current.today.adhocToday).toHaveLength(1);
+    expect(result.current.extra.adhocToday).toHaveLength(0);
+
+    act(() => result.current.extra.add('額外臨時'));
+    expect(result.current.extra.adhocToday).toHaveLength(1);
+    expect(result.current.today.adhocToday).toHaveLength(1);
+    expect(result.current.today.adhocToday[0]?.title).toBe('今天臨時');
+  });
+
+  it('credits points independently per scope for the same task', async () => {
+    window.localStorage.setItem(
+      'kid-todolist:tasks:v1',
+      JSON.stringify([
+        {
+          id: 'task-a',
+          title: '刷牙',
+          weekdays: [0, 1, 2, 3, 4, 5, 6],
+          createdAt: 0,
+          points: 2,
+        },
+      ]),
+    );
+
+    const { result } = renderHook(
+      () => ({
+        points: usePoints(),
+        today: useCompletions(DATE, 'today'),
+        extra: useCompletions(DATE, 'extra'),
+      }),
+      { wrapper },
+    );
+
+    await waitFor(() => expect(result.current.points.sync.ready).toBe(true));
+
+    act(() => result.current.today.toggle('task-a'));
+    act(() => result.current.extra.toggle('task-a'));
+    expect(result.current.points.balance).toBe(4);
+  });
+});
+
+describe('extra list cloud writes', () => {
+  beforeEach(() => {
+    membershipState.membership = { ...FAMILY_MEMBERSHIP };
+    membershipState.loading = false;
+    mockCloudSubscriptions();
+    vi.spyOn(firestore, 'writeDoc').mockResolvedValue(undefined);
+    vi.spyOn(firestore, 'writeSingleton').mockResolvedValue(undefined);
+    vi.spyOn(firestore, 'removeDoc').mockResolvedValue(undefined);
+  });
+
+  it('writes extra completions and adhoc to separate collections', async () => {
+    const { result } = renderHook(
+      () => ({
+        completions: useCompletions(DATE, 'extra'),
+        adhoc: useAdhoc(DATE, 'extra'),
+      }),
+      { wrapper },
+    );
+
+    await waitFor(() => expect(result.current.completions.sync.ready).toBe(true));
+
+    act(() => result.current.adhoc.add('額外臨時', 1));
+    act(() => result.current.completions.toggle(result.current.adhoc.adhocToday[0]!.id));
+
+    expect(firestore.writeDoc).toHaveBeenCalledWith(
+      FAMILY_EXTRA_ADHOC,
+      expect.any(String),
+      expect.objectContaining({ title: '額外臨時' }),
+    );
+    expect(firestore.writeDoc).toHaveBeenCalledWith(
+      FAMILY_EXTRA_COMPLETIONS,
+      DATE,
+      expect.objectContaining({ ids: expect.any(Array) }),
+    );
+    expect(firestore.writeDoc).not.toHaveBeenCalledWith(
+      FAMILY_COMPLETIONS,
+      DATE,
+      expect.anything(),
+    );
   });
 });
