@@ -92,7 +92,9 @@ describe('App family invite join flow', () => {
     });
     expect(mockClearPending).toHaveBeenCalled();
     expect(mockClearJoinParam).toHaveBeenCalled();
-    expect(screen.getByTestId('join-flow-status')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId('join-flow-status')).toBeInTheDocument();
+    });
     expect(screen.getByTestId('join-flow-status')).toHaveTextContent(
       INVITE_USER_MESSAGES.JOINED,
     );
