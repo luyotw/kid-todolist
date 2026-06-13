@@ -39,6 +39,8 @@ describe('TodayPage', () => {
     ]);
     renderWithProviders(<TodayPage />);
     expect(screen.getByText(/今天沒有安排的任務/)).toBeInTheDocument();
+    expect(screen.getByText(/管理任務/)).toBeInTheDocument();
+    expect(screen.queryByText(/去「任務」/)).not.toBeInTheDocument();
     expect(screen.getByText('今天 0 / 0 完成')).toBeInTheDocument();
   });
 

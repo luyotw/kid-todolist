@@ -93,7 +93,7 @@ export default function TodayPage() {
 
       {total === 0 ? (
         <p className="empty">
-          今天沒有安排的任務。在下面臨時加一個，或去「任務」設定排程。
+          今天沒有安排的任務。在下面臨時加一個，或點右上角「管理任務」設定排程。
         </p>
       ) : (
         <SortableList
