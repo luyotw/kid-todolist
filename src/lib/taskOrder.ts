@@ -51,20 +51,28 @@ export function removeTaskFromOrders(
   taskId: string,
   taskOrder?: string[],
   dayOrders?: DayOrders,
-): { taskOrder: string[]; dayOrders: DayOrders } {
+  extraDayOrders?: DayOrders,
+): { taskOrder: string[]; dayOrders: DayOrders; extraDayOrders: DayOrders } {
   const nextTaskOrder = (taskOrder ?? []).filter((id) => id !== taskId);
-  const nextDayOrders: DayOrders = {};
-  if (dayOrders) {
-    for (const [date, keys] of Object.entries(dayOrders)) {
-      const filtered = keys.filter(
-        (k) => !(k.source === 'task' && k.id === taskId),
-      );
-      if (filtered.length > 0) {
-        nextDayOrders[date] = filtered;
+  const filterDayOrders = (orders?: DayOrders): DayOrders => {
+    const nextDayOrders: DayOrders = {};
+    if (orders) {
+      for (const [date, keys] of Object.entries(orders)) {
+        const filtered = keys.filter(
+          (k) => !(k.source === 'task' && k.id === taskId),
+        );
+        if (filtered.length > 0) {
+          nextDayOrders[date] = filtered;
+        }
       }
     }
-  }
-  return { taskOrder: nextTaskOrder, dayOrders: nextDayOrders };
+    return nextDayOrders;
+  };
+  return {
+    taskOrder: nextTaskOrder,
+    dayOrders: filterDayOrders(dayOrders),
+    extraDayOrders: filterDayOrders(extraDayOrders),
+  };
 }
 
 export function hasDayOverride(

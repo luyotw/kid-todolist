@@ -55,18 +55,24 @@ describe('normalizeSettings', () => {
     );
   });
 
-  it('preserves taskOrder and dayOrders when present', () => {
+  it('preserves taskOrder, dayOrders, and extraDayOrders when present', () => {
     expect(
       normalizeSettings({
         taskOrder: ['a', 'b'],
         dayOrders: {
           '2026-01-05': [{ source: 'task', id: 'a' }],
         },
+        extraDayOrders: {
+          '2026-01-05': [{ source: 'adhoc', id: 'x' }],
+        },
       }),
     ).toMatchObject({
       taskOrder: ['a', 'b'],
       dayOrders: {
         '2026-01-05': [{ source: 'task', id: 'a' }],
+      },
+      extraDayOrders: {
+        '2026-01-05': [{ source: 'adhoc', id: 'x' }],
       },
     });
   });

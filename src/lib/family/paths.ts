@@ -22,6 +22,10 @@ export const familyPaths = {
     `${childRoot(familyId, childId)}/completions`,
   adhoc: (familyId: string, childId?: string) =>
     `${childRoot(familyId, childId)}/adhoc`,
+  extraCompletions: (familyId: string, childId?: string) =>
+    `${childRoot(familyId, childId)}/extraCompletions`,
+  extraAdhoc: (familyId: string, childId?: string) =>
+    `${childRoot(familyId, childId)}/extraAdhoc`,
   settings: (familyId: string, childId?: string) =>
     `${childRoot(familyId, childId)}/meta/settings`,
   membership: (uid: string) => `users/${uid}/meta/membership`,

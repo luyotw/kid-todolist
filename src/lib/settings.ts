@@ -28,6 +28,8 @@ export interface ParentSettings {
   taskOrder?: string[];
   /** Per-day Today list overrides (YYYY-MM-DD → ordered keys). */
   dayOrders?: DayOrders;
+  /** Per-day Extra list overrides (YYYY-MM-DD → ordered keys). */
+  extraDayOrders?: DayOrders;
 }
 
 type SettingsInput = Partial<ParentSettings> & {
@@ -36,6 +38,7 @@ type SettingsInput = Partial<ParentSettings> & {
   rewards?: unknown;
   taskOrder?: unknown;
   dayOrders?: unknown;
+  extraDayOrders?: unknown;
 };
 
 function legacyRewardsFromInput(raw: SettingsInput): RewardItem[] {
@@ -63,6 +66,7 @@ export function normalizeSettings(raw?: SettingsInput | null): ParentSettings {
 
   const taskOrder = normalizeTaskOrder(raw?.taskOrder);
   const dayOrders = normalizeDayOrders(raw?.dayOrders);
+  const extraDayOrders = normalizeDayOrders(raw?.extraDayOrders);
 
   return {
     completionMessage,
@@ -73,6 +77,7 @@ export function normalizeSettings(raw?: SettingsInput | null): ParentSettings {
         : DEFAULT_POINTS_BALANCE,
     ...(taskOrder ? { taskOrder } : {}),
     ...(dayOrders ? { dayOrders } : {}),
+    ...(extraDayOrders ? { extraDayOrders } : {}),
   };
 }
 

@@ -78,6 +78,8 @@ export interface LocalParentSnapshot {
   tasks: Task[];
   completions: Record<string, string[]>;
   adhoc: AdhocTask[];
+  extraCompletions: Record<string, string[]>;
+  extraAdhoc: AdhocTask[];
   settings: ParentSettings;
 }
 
@@ -85,7 +87,9 @@ export function isLocalSnapshotEmpty(snapshot: LocalParentSnapshot): boolean {
   return (
     snapshot.tasks.length === 0 &&
     snapshot.adhoc.length === 0 &&
-    Object.keys(snapshot.completions).length === 0
+    snapshot.extraAdhoc.length === 0 &&
+    Object.keys(snapshot.completions).length === 0 &&
+    Object.keys(snapshot.extraCompletions).length === 0
   );
 }
 
@@ -97,6 +101,7 @@ interface SettingsDoc {
   rewardCost?: number;
   taskOrder?: string[];
   dayOrders?: ParentSettings['dayOrders'];
+  extraDayOrders?: ParentSettings['extraDayOrders'];
 }
 
 interface CompletionDay {
@@ -125,6 +130,7 @@ function settingsToDoc(settings: ParentSettings) {
     pointsBalance: settings.pointsBalance,
     ...(settings.taskOrder ? { taskOrder: settings.taskOrder } : {}),
     ...(settings.dayOrders ? { dayOrders: settings.dayOrders } : {}),
+    ...(settings.extraDayOrders ? { extraDayOrders: settings.extraDayOrders } : {}),
   };
 }
 
@@ -138,7 +144,17 @@ function settingsFromDoc(data: SettingsDoc | null): ParentSettings {
     rewardCost: data.rewardCost,
     taskOrder: data.taskOrder,
     dayOrders: data.dayOrders,
+    extraDayOrders: data.extraDayOrders,
   });
+}
+
+function adhocToFirestore(item: AdhocTask) {
+  return {
+    title: item.title,
+    date: item.date,
+    createdAt: item.createdAt,
+    ...(item.points !== undefined ? { points: item.points } : {}),
+  };
 }
 
 export async function pushSnapshotToPaths(
@@ -151,22 +167,20 @@ export async function pushSnapshotToPaths(
       writeDoc(syncPaths.tasks, task.id, taskToFirestore(task), firestore),
     ),
     ...snapshot.adhoc.map((item) =>
-      writeDoc(
-        syncPaths.adhoc,
-        item.id,
-        {
-          title: item.title,
-          date: item.date,
-          createdAt: item.createdAt,
-          ...(item.points !== undefined ? { points: item.points } : {}),
-        },
-        firestore,
-      ),
+      writeDoc(syncPaths.adhoc, item.id, adhocToFirestore(item), firestore),
+    ),
+    ...snapshot.extraAdhoc.map((item) =>
+      writeDoc(syncPaths.extraAdhoc, item.id, adhocToFirestore(item), firestore),
     ),
     ...Object.entries(snapshot.completions).flatMap(([dateStr, ids]) =>
       ids.length === 0
         ? []
         : [writeDoc(syncPaths.completions, dateStr, { ids }, firestore)],
+    ),
+    ...Object.entries(snapshot.extraCompletions).flatMap(([dateStr, ids]) =>
+      ids.length === 0
+        ? []
+        : [writeDoc(syncPaths.extraCompletions, dateStr, { ids }, firestore)],
     ),
     writeSingleton(syncPaths.settings, settingsToDoc(snapshot.settings), firestore),
   ]);
@@ -200,6 +214,8 @@ export async function readLegacyUserCloudSnapshot(
     tasks,
     adhoc,
     completions,
+    extraCompletions: {},
+    extraAdhoc: [],
     settings: settingsFromDoc(settingsDoc),
   };
 }

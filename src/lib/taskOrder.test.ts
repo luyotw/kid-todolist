@@ -187,6 +187,18 @@ describe('removeTaskFromOrders', () => {
       '2026-01-05': [{ source: 'adhoc', id: 'x' }],
     });
   });
+
+  it('removes task from extra day orders too', () => {
+    const result = removeTaskFromOrders(
+      'a',
+      ['a'],
+      { '2026-01-05': [{ source: 'task', id: 'a' }] },
+      { '2026-01-05': [{ source: 'task', id: 'a' }, { source: 'adhoc', id: 'x' }] },
+    );
+    expect(result.extraDayOrders).toEqual({
+      '2026-01-05': [{ source: 'adhoc', id: 'x' }],
+    });
+  });
 });
 
 describe('appendTaskToGlobalOrder', () => {

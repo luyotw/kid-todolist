@@ -26,6 +26,12 @@ describe('resolveCloudSyncTarget', () => {
     expect(target.paths.adhoc).toBe(
       'families/fam-abc/children/kid-1/adhoc',
     );
+    expect(target.paths.extraCompletions).toBe(
+      'families/fam-abc/children/kid-1/extraCompletions',
+    );
+    expect(target.paths.extraAdhoc).toBe(
+      'families/fam-abc/children/kid-1/extraAdhoc',
+    );
     expect(target.paths.settings).toBe(
       'families/fam-abc/children/kid-1/meta/settings',
     );
