@@ -77,7 +77,7 @@ describe('App write-error banner', () => {
     render(<App />);
     await screen.findByRole('navigation', { name: '主要導覽' });
 
-    await user.click(screen.getByRole('button', { name: '任務' }));
+    await user.click(screen.getByRole('button', { name: '管理任務' }));
     await user.type(screen.getByLabelText('新任務'), '刷牙');
     await user.click(screen.getByRole('button', { name: '加' }));
 
