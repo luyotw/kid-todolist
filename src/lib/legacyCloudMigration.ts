@@ -94,6 +94,8 @@ export async function migrateLegacyUserCloudToFamily(
     tasks: familyPaths.tasks(familyId, normalized),
     completions: familyPaths.completions(familyId, normalized),
     adhoc: familyPaths.adhoc(familyId, normalized),
+    extraCompletions: familyPaths.extraCompletions(familyId, normalized),
+    extraAdhoc: familyPaths.extraAdhoc(familyId, normalized),
     settings: familyPaths.settings(familyId, normalized),
   };
   await pushSnapshotToPaths(targetPaths, snapshot, firestore);

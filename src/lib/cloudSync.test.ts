@@ -70,6 +70,8 @@ describe('cloudSync', () => {
         tasks: 'families/fam-1/children/_default/tasks',
         completions: 'families/fam-1/children/_default/completions',
         adhoc: 'families/fam-1/children/_default/adhoc',
+        extraCompletions: 'families/fam-1/children/_default/extraCompletions',
+        extraAdhoc: 'families/fam-1/children/_default/extraAdhoc',
         settings: 'families/fam-1/children/_default/meta/settings',
       },
       {
@@ -82,7 +84,9 @@ describe('cloudSync', () => {
           },
         ],
         adhoc: [],
+        extraAdhoc: [],
         completions: { '2026-01-05': ['t1'] },
+        extraCompletions: {},
         settings: {
           completionMessage: '棒',
           rewards: [],
@@ -119,6 +123,8 @@ describe('cloudSync', () => {
         tasks: 'families/fam-1/children/_default/tasks',
         completions: 'families/fam-1/children/_default/completions',
         adhoc: 'families/fam-1/children/_default/adhoc',
+        extraCompletions: 'families/fam-1/children/_default/extraCompletions',
+        extraAdhoc: 'families/fam-1/children/_default/extraAdhoc',
         settings: 'families/fam-1/children/_default/meta/settings',
       },
       {
@@ -132,7 +138,9 @@ describe('cloudSync', () => {
             points: 0,
           },
         ],
+        extraAdhoc: [],
         completions: {},
+        extraCompletions: {},
         settings: {
           completionMessage: '棒',
           rewards: [],

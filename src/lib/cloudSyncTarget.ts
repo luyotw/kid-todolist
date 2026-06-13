@@ -6,6 +6,8 @@ export interface CloudSyncPaths {
   tasks: string;
   completions: string;
   adhoc: string;
+  extraCompletions: string;
+  extraAdhoc: string;
   settings: string;
 }
 
@@ -20,6 +22,8 @@ const disabledPaths: CloudSyncPaths = {
   tasks: '',
   completions: '',
   adhoc: '',
+  extraCompletions: '',
+  extraAdhoc: '',
   settings: '',
 };
 
@@ -42,6 +46,8 @@ export function resolveCloudSyncTarget(
       tasks: familyPaths.tasks(familyId, childId),
       completions: familyPaths.completions(familyId, childId),
       adhoc: familyPaths.adhoc(familyId, childId),
+      extraCompletions: familyPaths.extraCompletions(familyId, childId),
+      extraAdhoc: familyPaths.extraAdhoc(familyId, childId),
       settings: familyPaths.settings(familyId, childId),
     },
   };

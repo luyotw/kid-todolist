@@ -24,12 +24,14 @@ import { reloadApp } from './lib/pwa/standalone';
 import LoginScreen from './pages/LoginScreen';
 import SettingsPage from './pages/SettingsPage';
 import TasksPage from './pages/TasksPage';
+import ExtraPage from './pages/ExtraPage';
 import TodayPage from './pages/TodayPage';
 
-type Tab = 'today' | 'settings';
+type Tab = 'today' | 'extra' | 'settings';
 
 const TAB_TITLE: Record<Tab, string> = {
   today: '今天',
+  extra: '額外',
   settings: '設定',
 };
 
@@ -140,7 +142,7 @@ function AppShell() {
     : user?.displayName || user?.email?.split('@')[0] || '家長';
 
   useEffect(() => {
-    if (tab !== 'today' && tasksSheetOpen) {
+    if (tab === 'settings' && tasksSheetOpen) {
       setTasksSheetOpen(false);
     }
   }, [tab, tasksSheetOpen]);
@@ -187,7 +189,7 @@ function AppShell() {
             >
               <FontAwesomeIcon icon={faRefresh} aria-hidden />
             </button>
-            {tab === 'today' && (
+            {tab !== 'settings' && (
               <button
                 type="button"
                 className="app-header__tasks"
@@ -239,10 +241,11 @@ function AppShell() {
         aria-hidden={tasksSheetOpen ? true : undefined}
       >
         {tab === 'today' && <TodayPage />}
+        {tab === 'extra' && <ExtraPage />}
         {tab === 'settings' && <SettingsPage />}
       </main>
       <nav className="app-tabbar" aria-label="主要導覽">
-        {(['today', 'settings'] as Tab[]).map((t) => (
+        {(['today', 'extra', 'settings'] as Tab[]).map((t) => (
           <button
             key={t}
             type="button"

@@ -28,6 +28,12 @@ describe('familyPaths', () => {
     expect(familyPaths.adhoc(familyId)).toBe(
       'families/fam-abc/children/_default/adhoc',
     );
+    expect(familyPaths.extraCompletions(familyId)).toBe(
+      'families/fam-abc/children/_default/extraCompletions',
+    );
+    expect(familyPaths.extraAdhoc(familyId)).toBe(
+      'families/fam-abc/children/_default/extraAdhoc',
+    );
     expect(familyPaths.settings(familyId)).toBe(
       'families/fam-abc/children/_default/meta/settings',
     );

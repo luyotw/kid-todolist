@@ -171,11 +171,28 @@ describe('App tasks sheet', () => {
     expect(screen.queryByLabelText('新任務')).not.toBeInTheDocument();
   });
 
-  it('shows only today and settings tabs', () => {
+  it('shows today, extra, and settings tabs in order', () => {
     render(<App />);
-    expect(screen.getByRole('button', { name: '今天' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '設定' })).toBeInTheDocument();
+    const tabs = within(screen.getByRole('navigation', { name: '主要導覽' }))
+      .getAllByRole('button')
+      .map((button) => button.textContent);
+    expect(tabs).toEqual(['今天', '額外', '設定']);
     expect(screen.queryByRole('button', { name: '任務' })).not.toBeInTheDocument();
+  });
+
+  it('shows manage-tasks button on extra tab', () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: '額外' }));
+    expect(screen.getByRole('button', { name: '管理任務' })).toBeInTheDocument();
+  });
+
+  it('keeps the tasks sheet open when switching between today and extra', () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: '管理任務' }));
+    expect(screen.getByLabelText('新任務')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '額外' }));
+    expect(screen.getByLabelText('新任務')).toBeInTheDocument();
   });
 
   it('closes the sheet when switching to settings', () => {
